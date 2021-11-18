@@ -1,7 +1,13 @@
-README
-================
-Victoria Seng
-11/17/2021
+---
+title: "README"
+author: "Victoria Seng"
+date: "11/17/2021"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
 ## What is this?
 
