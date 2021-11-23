@@ -11,6 +11,7 @@
 library(shiny)
 library(tidyverse)
 library(fastDummies)
+library(corrplot)
 
 # https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset
 
@@ -26,13 +27,81 @@ theModelT <- dummy_cols(
 ) # the data set with dummy cols for factor vars
 
 # Define server logic required to draw a histogram
-shinyServer(function(input, output) {
+shinyServer(function(input, output, session) {
     
   observeEvent(input$tabset, {
     # TODO: update sidebar widgets depending on what tab is open
   })
-    # TODO: graphical plot based on user input with dynamic to allow for stack vs grouped bars if bar
+  observe({
+    updateSelectInput(session, "xaxis", choices = if(input$graphType == 'scatter') {
+      list("Administrative Pages Viewed"           = "Administrative", 
+           "Administrative Duration"               = "Administrative_Duration",
+           "Informational Pages Viewed"            = "Informational",
+           "Informational Duration"                = "Informational_Duration",
+           "Product-Related Pages Viewed"          = "ProductRelated",
+           "Product-Related Duration"              = "ProductRelated_Duration",
+           "Bounce Rates"                          = "BounceRates",
+           "Exit Rates"                            = "ExitRates",
+           "Page Values"                           = "PageValues",
+           "Proximity to Special Day"              = "SpecialDay"
+      )} else {NULL}
+      )
+  }) 
+  
+  output$expVis <- renderPlot({
+    if(input$graphType == "bar" & input$split == "None") {
+        
+      ggplot(theT, aes(x = theT[[input$xaxis]])) +
+        geom_bar() +
+          labs(x = input$xaxis)
+        
+    } else if(input$graphType == "bar" & input$split != "None") {
+        
+      ggplot(theT, aes(x = as_factor(theT[[input$xaxis]]))) +
+        geom_bar(aes(fill = theT[[input$split]])) +
+          labs(x = input$xaxis, fill = input$split)
+        
+    } else if(input$graphType == "box") {
+        
+      theT$x <- factor(theT[[input$xaxis]])
+        ggplot(theT, aes(fill = theT$x, y = theT[[input$yaxis]])) +
+          geom_boxplot() +
+            labs(x = input$xaxis, y = input$yaxis)
+        
+    } else if(input$graphType == "scatter" & input$split == "None") {
+      
+      ggplot(theT, aes(x = theT[[input$xaxis]], y = theT[[input$yaxis]])) +
+        geom_point() +
+          labs(x = input$xaxis, y = input$yaxis)
+        
+    } else if(input$graphType == "scatter" & input$split != "None") {
+        
+      ggplot(theT, aes(x = theT[[input$xaxis]], y = theT[[input$yaxis]], color = theT[[input$split]])) +
+        geom_point() +
+          labs(x = input$xaxis, y = input$yaxis, color = input$split)
+        
+    }
+  })
     # TODO: summary based on user input
+  
+  observe({
+    updateSelectInput(session, "filterList", choices = unique(theT[[input$byVar]]))
+  })
+  
+  output$expTab <- renderDataTable({
+    byVar <- theT[[input$byVar]]
+    summVar <- theT[[input$summVar]]
+    filterList <- input$filterList
+    df <- theT %>%
+      group_by(theT[[input$byVar]]) %>%
+        summarize(min = min(theT[[input$summVar]]), 
+                  mean = mean(theT[[input$summVar]]), 
+                  median = median(theT[[input$summVar]]), 
+                  max = max(theT[[input$summVar]]), 
+                  iqr = IQR(theT[[input$summVar]])) %>%
+          filter(theT[[input$byVar]] %in% input$filterList)
+    
+  })
     # TODO: split data into training and test based on user ratio
     # TODO: define models & show fit stats & tests based on user input when button is clicked
     # TODO: execute model predict when user changes input and clicks button

@@ -1,6 +1,20 @@
 #
 library(tidyverse)
 library(shiny)
+library(fastDummies)
+
+theT <- read_csv("../online_shoppers_intention.csv") # the data set as-is
+theModelT <- dummy_cols(
+  theT,
+  select_columns = c("Month", "VisitorType"),
+  remove_first_dummy = FALSE,
+  remove_most_frequent_dummy = FALSE,
+  ignore_na = FALSE,
+  split = TRUE,
+  remove_selected_columns = TRUE
+)
+
+modNames <- names(theModelT)
 
 # Define UI for application that draws a histogram
 shinyUI(
@@ -18,16 +32,89 @@ shinyUI(
         ),
         conditionalPanel(
           condition = "input.tabset == 'Data Exploration'",
-          p("The Data exploration panel sidebar"),
+          h3("Visual Controls"),
           radioButtons(
             "graphType", 
             strong("Select a graph type"), 
-            choices = list("Histogram" = "hist", "Scatter" = "scatter")
+            choices = list("Bar Chart" = "bar", "Box Plot" = "box", "Scatter Plot" = "scatter")
           ),
           selectInput(
-            "graphVar", 
-            strong("Select a varible to see its relationship to purchases"),
-            choices = list("a choice" = 1, "another choice" = 2)
+            "xaxis", 
+            strong("Select x axis variable"),
+            choices = list("Month"                                 = "Month",
+                            "OS"                                    = "OperatingSystems",
+                            "Browser"                               = "Browser",
+                            "Region"                                = "Region",
+                            "Traffic Type"                          = "TrafficType",
+                            "Visitor Type"                          = "VisitorType",
+                            "Weekend (T/F)"                         = "Weekend",
+                            "Revenue (T/F)"                         = "Revenue"
+                        )
+          ),
+          conditionalPanel(
+            condition = "input.graphType == 'box' | input.graphType == 'scatter'",
+            selectInput(
+              "yaxis", 
+              strong("Select y axis variable"),
+              choices = list("Administrative Pages Viewed"           = "Administrative", 
+                             "Administrative Duration"               = "Administrative_Duration",
+                             "Informational Pages Viewed"            = "Informational",
+                             "Informational Duration"                = "Informational_Duration",
+                             "Product-Related Pages Viewed"          = "ProductRelated",
+                             "Product-Related Duration"              = "ProductRelated_Duration",
+                             "Bounce Rates"                          = "BounceRates",
+                             "Exit Rates"                            = "ExitRates",
+                             "Page Values"                           = "PageValues",
+                             "Proximity to Special Day"              = "SpecialDay"
+              )
+            )
+          ),
+          conditionalPanel(
+            condition = "input.graphType == 'bar' | input.graphType == 'scatter'",
+            selectInput(
+              "split", 
+              strong("Select a split varible"),
+              choices = list("None"                                  = "None",
+                             "Weekend (T/F)"                         = "Weekend",
+                             "Revenue (T/F)"                         = "Revenue"
+              )
+            )
+          
+          ),
+          h3("Summary Controls"),
+          selectInput(
+            "summVar",
+            strong("Select the variable to be summarized"),
+            choices = list("Administrative Pages Viewed"           = "Administrative", 
+                           "Administrative Duration"               = "Administrative_Duration",
+                           "Informational Pages Viewed"            = "Informational",
+                           "Informational Duration"                = "Informational_Duration",
+                           "Product-Related Pages Viewed"          = "ProductRelated",
+                           "Product-Related Duration"              = "ProductRelated_Duration",
+                           "Bounce Rates"                          = "BounceRates",
+                           "Exit Rates"                            = "ExitRates",
+                           "Page Values"                           = "PageValues",
+                           "Proximity to Special Day"              = "SpecialDay"
+            )
+          ),
+          selectInput(
+            "byVar",
+            strong("Select the variable for summary grouping"),
+            choices = list("Month"                                 = "Month",
+                           "OS"                                    = "OperatingSystems",
+                           "Browser"                               = "Browser",
+                           "Region"                                = "Region",
+                           "Traffic Type"                          = "TrafficType",
+                           "Visitor Type"                          = "VisitorType",
+                           "Weekend (T/F)"                         = "Weekend",
+                           "Revenue (T/F)"                         = "Revenue"
+            )
+          ),
+          selectInput(
+            "filterList",
+            strong("Select summary filters"),
+            choices = NULL,
+            multiple = TRUE
           )
         ),
         conditionalPanel(
@@ -59,7 +146,7 @@ shinyUI(
               HTML("<div>
                       <img src = 'noun_online shopping_1605024.svg' width = '100px' height = 'auto' align = 'left' alt = 'online shopping icon'>
                       <p> This app provides an interface for the user to explore, analyze, and model ecommerce session behavior and its impact on purchase.</p>
-                      <p>The data set from the UCI Machine Learning repository contains information about the purchase intent behavior of website visitors. It details when they visited, for how long, what kinds of pages were viewed, and whether they ultimately made an ecommerce purchase.</p>
+                      <p>The data set from the UCI Machine Learning repository contains information about the purchase intent behavior of website visitors. It details all of a users' visits in a 1 yr period: length, duration, types of content viewed, and whether they ultimately made an ecommerce purchase.</p>
                     </div>"
                    ),
               br(),
@@ -77,6 +164,8 @@ shinyUI(
             tabPanel(
               "Data Exploration",
               # TODO: Graphical summary, user input changes graph type, vars and summary type, filters
+              plotOutput("expVis"),
+              dataTableOutput("expTab")
             ),
             tabPanel(
               "Modeling",
