@@ -18,13 +18,13 @@ library(corrplot)
 theT <- read_csv("../online_shoppers_intention.csv") # the data set as-is
 theModelT <- dummy_cols(
   theT,
-  select_columns = c("Month", "VisitorType"),
+  select_columns = c("Month", "OS", "Region", "TrafficType", "VisitorType"),
   remove_first_dummy = FALSE,
   remove_most_frequent_dummy = FALSE,
   ignore_na = FALSE,
   split = TRUE,
   remove_selected_columns = TRUE
-) # the data set with dummy cols for factor vars
+) # the data set with dummy cols for factor/categorical vars
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
