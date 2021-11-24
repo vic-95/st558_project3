@@ -2,6 +2,7 @@
 library(tidyverse)
 library(shiny)
 library(fastDummies)
+#library(mathJax)
 
 theT <- read_csv("../online_shoppers_intention.csv") # the data set as-is
 theModelT <- dummy_cols(
@@ -41,15 +42,7 @@ shinyUI(
           selectInput(
             "xaxis", 
             strong("Select x axis variable"),
-            choices = list("Month"                                 = "Month",
-                            "OS"                                    = "OperatingSystems",
-                            "Browser"                               = "Browser",
-                            "Region"                                = "Region",
-                            "Traffic Type"                          = "TrafficType",
-                            "Visitor Type"                          = "VisitorType",
-                            "Weekend (T/F)"                         = "Weekend",
-                            "Revenue (T/F)"                         = "Revenue"
-                        )
+            choices = NULL
           ),
           conditionalPanel(
             condition = "input.graphType == 'box' | input.graphType == 'scatter'",
@@ -110,20 +103,25 @@ shinyUI(
                            "Revenue (T/F)"                         = "Revenue"
             )
           ),
-          selectInput(
+          checkboxGroupInput(
             "filterList",
             strong("Select summary filters"),
-            choices = NULL,
-            multiple = TRUE
+            choices = NULL
           )
         ),
         conditionalPanel(
           condition = "input.tabset == 'Modeling' & input.modelTabset == 'Modeling Info'",
           p("The Modeling.info panel sidebar")
+          # TODO: Add copy about the models
         ),
         conditionalPanel(
           condition = "input.tabset == 'Modeling' & input.modelTabset == 'Model Fitting'",
-          p("The Modeling.fitting panel sidebar")
+          h3("Fitting the Models"),
+          sliderInput(
+            "dataSplit", label = strong("Select the proportion of data to use for model training"),
+            min = 0, max = 1, value = 0.8
+          )
+          
         ),
         conditionalPanel(
           condition = "input.tabset == 'Modeling' & input.modelTabset == 'Prediction'",

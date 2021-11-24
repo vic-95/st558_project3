@@ -44,9 +44,19 @@ shinyServer(function(input, output, session) {
            "Exit Rates"                            = "ExitRates",
            "Page Values"                           = "PageValues",
            "Proximity to Special Day"              = "SpecialDay"
-      )} else {NULL}
+      )} else {
+        list("Month"                                 = "Month",
+             "OS"                                    = "OperatingSystems",
+             "Browser"                               = "Browser",
+             "Region"                                = "Region",
+             "Traffic Type"                          = "TrafficType",
+             "Visitor Type"                          = "VisitorType",
+             "Weekend (T/F)"                         = "Weekend",
+             "Revenue (T/F)"                         = "Revenue"
+        )
+       }
       )
-  }) 
+  }) # this bit puts numeric vars in x axis choices for scatter plot, otherwise categorical
   
   output$expVis <- renderPlot({
     if(input$graphType == "bar" & input$split == "None") {
@@ -76,31 +86,27 @@ shinyServer(function(input, output, session) {
         
     } else if(input$graphType == "scatter" & input$split != "None") {
         
-      ggplot(theT, aes(x = theT[[input$xaxis]], y = theT[[input$yaxis]], color = theT[[input$split]])) +
+      ggplot(theT, aes(x = .data[[input$xaxis]], y = theT[[input$yaxis]], color = theT[[input$split]])) +
         geom_point() +
           labs(x = input$xaxis, y = input$yaxis, color = input$split)
         
     }
-  })
-    # TODO: summary based on user input
+  }) # some really ugle if/else logic to get the right graph based on user selections
+  
   
   observe({
-    updateSelectInput(session, "filterList", choices = unique(theT[[input$byVar]]))
-  })
-  
+    updateCheckboxGroupInput(session, "filterList", choices = unique(theT[[input$byVar]]), selected = unique(theT[[input$byVar]]))
+  }) # change what options the filter box displays based on the by-variable. Select them all by default.
+
   output$expTab <- renderDataTable({
-    byVar <- theT[[input$byVar]]
-    summVar <- theT[[input$summVar]]
-    filterList <- input$filterList
     df <- theT %>%
-      group_by(theT[[input$byVar]]) %>%
-        summarize(min = min(theT[[input$summVar]]), 
-                  mean = mean(theT[[input$summVar]]), 
-                  median = median(theT[[input$summVar]]), 
-                  max = max(theT[[input$summVar]]), 
-                  iqr = IQR(theT[[input$summVar]])) %>%
-          filter(theT[[input$byVar]] %in% input$filterList)
-    
+      filter(.data[[input$byVar]] %in% input$filterList) %>%
+        group_by(.data[[input$byVar]]) %>%
+          summarize(mean = round(mean(.data[[input$summVar]]), digits = 2), 
+                    median = round(median(.data[[input$summVar]]), digits = 2),
+                    iqr = round(IQR(.data[[input$summVar]]), digits = 2),
+                    sd = round(sd(.data[[input$summVar]]), digits = 2)
+                    )
   })
     # TODO: split data into training and test based on user ratio
     # TODO: define models & show fit stats & tests based on user input when button is clicked
