@@ -161,17 +161,20 @@ shinyUI(
                 "dataSplit", label = strong("Select the proportion of data to use for model training"),
                 min = 0, max = 1, value = 0.8
               ),
-              checkboxGroupInput(
+              selectInput(
                 "linregVars", label = strong("Variables for the linear regression model"),
-                choices = predVec
+                choices = predVec,
+                multiple = TRUE
               ),
-              checkboxGroupInput(
-                "regTreeVars", label = strong("Variables for the linear regression model"),
-                choices = predVec
+              selectInput(
+                "regTreeVars", label = strong("Variables for the regression tree model"),
+                choices = predVec,
+                multiple = TRUE
               ),
-              checkboxGroupInput(
-                "rForestVars", label = strong("Variables for the linear regression model"),
-                choices = predVec
+              selectInput(
+                "rForestVars", label = strong("Variables for the random forest model"),
+                choices = predVec,
+                multiple = TRUE
               ),
               actionButton("modelGo", "Train Models")
             ),
@@ -187,7 +190,12 @@ shinyUI(
                 
             ),
             mainPanel(
-                
+              splitLayout(
+                plotOutput("linreg"),
+                plotOutput("regTree"),
+                plotOutput("rForest")
+              ),
+              plotOutput("fitStats")
             )
           )
         )

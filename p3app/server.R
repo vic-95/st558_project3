@@ -11,14 +11,13 @@
 library(shiny)
 library(tidyverse)
 library(fastDummies)
-library(corrplot)
 
 # https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset
 
 theT <- read_csv("../online_shoppers_intention.csv") # the data set as-is
 theModelT <- dummy_cols(
   theT,
-  select_columns = c("Month", "OS", "Region", "TrafficType", "VisitorType"),
+  select_columns = c("Month", "OperatingSystems", "Region", "TrafficType", "VisitorType"),
   remove_first_dummy = FALSE,
   remove_most_frequent_dummy = FALSE,
   ignore_na = FALSE,
@@ -110,6 +109,18 @@ shinyServer(function(input, output, session) {
   })
     # TODO: split data into training and test based on user ratio
     # TODO: define models & show fit stats & tests based on user input when button is clicked
+  output$linreg <- renderPlot({
+    ## TODO
+  })
+  output$regTree <- renderPlot({
+    ## TODO
+  })
+  output$regTree <- renderPlot({
+    ## TODO
+  })
+  output$fitStats <- renderPlot({
+    ## TODO
+  })
     # TODO: execute model predict when user changes input and clicks button
     # TODO: render data table with user subsets
  
