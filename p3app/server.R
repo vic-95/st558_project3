@@ -9,51 +9,18 @@
 
 
 library(shiny)
-library(tidyverse)
-library(fastDummies)
+library(caret)
+library(tree)
+library(randomForest)
 
-# https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset
-
-theT <- read_csv("../online_shoppers_intention.csv") # the data set as-is
-theModelT <- dummy_cols(
-  theT,
-  select_columns = c("Month", "OperatingSystems", "Region", "TrafficType", "VisitorType"),
-  remove_first_dummy = FALSE,
-  remove_most_frequent_dummy = FALSE,
-  ignore_na = FALSE,
-  split = TRUE,
-  remove_selected_columns = TRUE
-) # the data set with dummy cols for factor/categorical vars
+source("setup.R")
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
     
-  observeEvent(input$tabset, {
-    # TODO: update sidebar widgets depending on what tab is open
-  })
   observe({
-    updateSelectInput(session, "xaxis", choices = if(input$graphType == 'scatter') {
-      list("Administrative Pages Viewed"           = "Administrative", 
-           "Administrative Duration"               = "Administrative_Duration",
-           "Informational Pages Viewed"            = "Informational",
-           "Informational Duration"                = "Informational_Duration",
-           "Product-Related Pages Viewed"          = "ProductRelated",
-           "Product-Related Duration"              = "ProductRelated_Duration",
-           "Bounce Rates"                          = "BounceRates",
-           "Exit Rates"                            = "ExitRates",
-           "Page Values"                           = "PageValues",
-           "Proximity to Special Day"              = "SpecialDay"
-      )} else {
-        list("Month"                                 = "Month",
-             "OS"                                    = "OperatingSystems",
-             "Browser"                               = "Browser",
-             "Region"                                = "Region",
-             "Traffic Type"                          = "TrafficType",
-             "Visitor Type"                          = "VisitorType",
-             "Weekend (T/F)"                         = "Weekend",
-             "Revenue (T/F)"                         = "Revenue"
-        )
-       }
+    updateSelectInput(session, "xaxis", choices = if(input$graphType == 'scatter') {numVars} 
+      else {catVars}
       )
   }) # this bit puts numeric vars in x axis choices for scatter plot, otherwise categorical
   
@@ -90,8 +57,7 @@ shinyServer(function(input, output, session) {
           labs(x = input$xaxis, y = input$yaxis, color = input$split)
         
     }
-  }) # some really ugle if/else logic to get the right graph based on user selections
-  
+  }) # some really ugly if/else logic to get the right graph based on user selections
   
   observe({
     updateCheckboxGroupInput(session, "filterList", choices = unique(theT[[input$byVar]]), selected = unique(theT[[input$byVar]]))
@@ -106,21 +72,77 @@ shinyServer(function(input, output, session) {
                     iqr = round(IQR(.data[[input$summVar]]), digits = 2),
                     sd = round(sd(.data[[input$summVar]]), digits = 2)
                     )
-  })
+  }) # data table that allows for filtering values of categorical by-vars
+  
     # TODO: split data into training and test based on user ratio
-    # TODO: define models & show fit stats & tests based on user input when button is clicked
-  output$linreg <- renderPlot({
-    ## TODO
+  index <- reactive({
+    createDataPartition(y = theModelT$Revenue , p = input$dataSplit, list = FALSE)
   })
-  output$regTree <- renderPlot({
-    ## TODO
+  
+  training <- reactive({
+    theModelT[index(),]
   })
-  output$regTree <- renderPlot({
-    ## TODO
+  
+  testing <- reactive({
+    theModelT[-index(),]
   })
-  output$fitStats <- renderPlot({
-    ## TODO
+  
+  observeEvent(input$modelGo, {
+    
+    trdata <- data.frame(training())
+    tsdata <- data.frame(testing())
+    
+    lrTrain <- train(
+      as.formula(paste("Revenue ~ ", paste(input$linregVars, collapse = "+"))),
+      data = trdata,
+      method = "lm",
+      preProcess = c("center","scale"),
+      trControl = trainControl(method = "cv", number = 10)
+    )
+    
+    lrTest <- predict(lrTrain, newdata = tsdata)
+    #lr <- round(postResample(lrTest, obs = test$Revenue), 4)
+    
+    ctTrain <- train(
+      as.formula(paste("Revenue ~ ", paste(input$clTreeVars, collapse = "+"))),
+      data = trdata,
+      method = "rpart",
+      preProcess = c("center","scale"),
+      trControl = trainControl(method = "cv", number = 10)
+    )
+    
+    ctTest <- predict(ctTrain, newdata = tsdata)
+    #ct <- round(postResample(ctTest, obs = test$Revenue), 4)
+    
+    rfTrain <- train(
+      as.formula(paste("Revenue ~ ", paste(input$rForestVars, collapse = "+"))),
+      data = trdata,
+      method = "rf",
+      preProcess = c("center", "scale"),
+      trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
+      tuneGrid = data.frame(mtry = seq(1,10,1))
+    )
+    
+    rfTest <- predict(rfTrain, newdata = tsdata)
+    #rf <- round(postResample(rfTest, obs = test$Revenue), 4)
+    
+    output$linreg <- renderPlot({
+      
+    })
+    output$clTree <- renderPlot({
+      tree(ct)
+    })
+    output$rForest <- renderPlot({
+      ## TODO
+    })
+    
+    output$fitStats <- renderDataTable({
+      data.frame(Models = c("Linear Regression","Classification Tree","Random Forest"),
+                 RMSE = round(c(lrTest[1], ctTest[1],rfTest[1]),1))
+    })
+    
   })
+  
     # TODO: execute model predict when user changes input and clicks button
     # TODO: render data table with user subsets
  

@@ -1,24 +1,8 @@
-#
-library(tidyverse)
+
 library(shiny)
-library(fastDummies)
 #library(mathJax)
 
-theT <- read_csv("../online_shoppers_intention.csv") # the data set as-is
-theModelT <- dummy_cols(
-  theT,
-  select_columns = c("Month", "OperatingSystems", "Region", "TrafficType", "VisitorType"),
-  remove_first_dummy = FALSE,
-  remove_most_frequent_dummy = FALSE,
-  ignore_na = FALSE,
-  split = TRUE,
-  remove_selected_columns = TRUE
-) # the data set with dummy cols for factor/categorical vars
-
-modNames <- names(theModelT)
-
-predVec <- modNames[ ! modNames %in% c("Revenue")]
-
+source("setup.R")
 
 # Define UI for application that draws a histogram
 shinyUI(
@@ -73,17 +57,7 @@ shinyUI(
               selectInput(
                 "yaxis", 
                 strong("Select y axis variable"),
-                choices = list("Administrative Pages Viewed"           = "Administrative", 
-                               "Administrative Duration"               = "Administrative_Duration",
-                               "Informational Pages Viewed"            = "Informational",
-                               "Informational Duration"                = "Informational_Duration",
-                               "Product-Related Pages Viewed"          = "ProductRelated",
-                               "Product-Related Duration"              = "ProductRelated_Duration",
-                               "Bounce Rates"                          = "BounceRates",
-                               "Exit Rates"                            = "ExitRates",
-                               "Page Values"                           = "PageValues",
-                               "Proximity to Special Day"              = "SpecialDay"
-                )
+                choices = numVars
               )
             ),
             conditionalPanel(
@@ -102,30 +76,12 @@ shinyUI(
             selectInput(
               "summVar",
               strong("Select the variable to be summarized"),
-              choices = list("Administrative Pages Viewed"           = "Administrative", 
-                             "Administrative Duration"               = "Administrative_Duration",
-                             "Informational Pages Viewed"            = "Informational",
-                             "Informational Duration"                = "Informational_Duration",
-                             "Product-Related Pages Viewed"          = "ProductRelated",
-                             "Product-Related Duration"              = "ProductRelated_Duration",
-                             "Bounce Rates"                          = "BounceRates",
-                             "Exit Rates"                            = "ExitRates",
-                             "Page Values"                           = "PageValues",
-                             "Proximity to Special Day"              = "SpecialDay"
-              )
+              choices = numVars
             ),
             selectInput(
               "byVar",
               strong("Select the variable for summary grouping"),
-              choices = list("Month"                                 = "Month",
-                             "OS"                                    = "OperatingSystems",
-                             "Browser"                               = "Browser",
-                             "Region"                                = "Region",
-                             "Traffic Type"                          = "TrafficType",
-                             "Visitor Type"                          = "VisitorType",
-                             "Weekend (T/F)"                         = "Weekend",
-                             "Revenue (T/F)"                         = "Revenue"
-              )
+              choices = catVars
             ),
             checkboxGroupInput(
               "filterList",
@@ -164,22 +120,30 @@ shinyUI(
               selectInput(
                 "linregVars", label = strong("Variables for the linear regression model"),
                 choices = predVec,
+                selected = predVec,
                 multiple = TRUE
               ),
               selectInput(
-                "regTreeVars", label = strong("Variables for the regression tree model"),
+                "clTreeVars", label = strong("Variables for the regression tree model"),
                 choices = predVec,
+                selected = predVec,
                 multiple = TRUE
               ),
               selectInput(
                 "rForestVars", label = strong("Variables for the random forest model"),
                 choices = predVec,
+                selected = predVec,
                 multiple = TRUE
               ),
               actionButton("modelGo", "Train Models")
             ),
             mainPanel(
-                
+              splitLayout(
+                plotOutput("linreg"),
+                plotOutput("clTree"),
+                plotOutput("rForest")
+              ),
+              plotOutput("fitStats") 
             )
           )
         ),
@@ -190,12 +154,7 @@ shinyUI(
                 
             ),
             mainPanel(
-              splitLayout(
-                plotOutput("linreg"),
-                plotOutput("regTree"),
-                plotOutput("rForest")
-              ),
-              plotOutput("fitStats")
+              
             )
           )
         )
