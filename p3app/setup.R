@@ -42,8 +42,32 @@ theModelT <- dummy_cols(
   split = TRUE,
   remove_selected_columns = TRUE
 ) # the data set with dummy cols for factor/categorical vars
-
-modNames <- names(theModelT)
+  
+modNames <- names(theT)
 
 predVec <- modNames[ ! modNames %in% c("Revenue")]
 
+#########################
+# 
+# index <- createDataPartition(y = theT$Revenue , p = input$dataSplit, list = FALSE)
+# trdata <- data.frame(theT[index,])
+# tsdata <- data.frame(theT[-index,])
+# 
+# ctTrain <- 
+#     train(
+#       Revenue ~ .,
+#       data = trdata,
+#       method = "rpart",
+#       preProcess = c("center","scale"),
+#       trControl = trainControl(method = "cv", number = 10)
+#     )
+# 
+# rfTrain <- 
+#     train(
+#       Revenue ~ .,
+#       data = trdata,
+#       method = "rf",
+#       preProcess = c("center", "scale"),
+#       trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
+#       tuneGrid = data.frame(mtry = seq(5,10,1))
+#     )

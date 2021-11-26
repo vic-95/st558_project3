@@ -138,12 +138,9 @@ shinyUI(
               actionButton("modelGo", "Train Models")
             ),
             mainPanel(
-              splitLayout(
-                plotOutput("linreg"),
-                plotOutput("clTree"),
-                plotOutput("rForest")
-              ),
-              plotOutput("fitStats") 
+              verbatimTextOutput("lrStats"),
+              verbatimTextOutput("ctStats"),
+              verbatimTextOutput("rfStats")
             )
           )
         ),

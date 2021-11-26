@@ -75,73 +75,67 @@ shinyServer(function(input, output, session) {
   }) # data table that allows for filtering values of categorical by-vars
   
     # TODO: split data into training and test based on user ratio
-  index <- reactive({
-    createDataPartition(y = theModelT$Revenue , p = input$dataSplit, list = FALSE)
-  })
   
-  training <- reactive({
-    theModelT[index(),]
-  })
   
-  testing <- reactive({
-    theModelT[-index(),]
-  })
   
-  observeEvent(input$modelGo, {
+  index <- eventReactive(input$modelGo, {createDataPartition(y = theT$Revenue , p = input$dataSplit, list = FALSE)})
+  trdata <- eventReactive(input$modelGo, {data.frame(theT[index(),])})
+  tsdata <- eventReactive(input$modelGo, {data.frame(theT[-index(),])})
     
-    trdata <- data.frame(training())
-    tsdata <- data.frame(testing())
-    
-    lrTrain <- train(
+  lrTrain <- eventReactive(input$modelGo, {
+    withProgress({
+    train(
       as.formula(paste("Revenue ~ ", paste(input$linregVars, collapse = "+"))),
-      data = trdata,
-      method = "lm",
+      data = trdata(),
+      method = "glm",
+      family = "binomial",
       preProcess = c("center","scale"),
       trControl = trainControl(method = "cv", number = 10)
-    )
+    )}, message = "training glm")
+  })
     
-    lrTest <- predict(lrTrain, newdata = tsdata)
-    #lr <- round(postResample(lrTest, obs = test$Revenue), 4)
-    
-    ctTrain <- train(
+  ctTrain <- eventReactive(input$modelGo, {
+    withProgress({
+    train(
       as.formula(paste("Revenue ~ ", paste(input$clTreeVars, collapse = "+"))),
-      data = trdata,
+      data = trdata(),
       method = "rpart",
       preProcess = c("center","scale"),
       trControl = trainControl(method = "cv", number = 10)
-    )
+    )}, message = "training tree")
+  })
     
-    ctTest <- predict(ctTrain, newdata = tsdata)
-    #ct <- round(postResample(ctTest, obs = test$Revenue), 4)
-    
-    rfTrain <- train(
+  rfTrain <- eventReactive(input$modelGo, {
+    withProgress({
+    train(
       as.formula(paste("Revenue ~ ", paste(input$rForestVars, collapse = "+"))),
-      data = trdata,
+      data = trdata(),
       method = "rf",
       preProcess = c("center", "scale"),
       trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
-      tuneGrid = data.frame(mtry = seq(1,10,1))
-    )
-    
-    rfTest <- predict(rfTrain, newdata = tsdata)
-    #rf <- round(postResample(rfTest, obs = test$Revenue), 4)
-    
-    output$linreg <- renderPlot({
-      
-    })
-    output$clTree <- renderPlot({
-      tree(ct)
-    })
-    output$rForest <- renderPlot({
-      ## TODO
-    })
-    
-    output$fitStats <- renderDataTable({
-      data.frame(Models = c("Linear Regression","Classification Tree","Random Forest"),
-                 RMSE = round(c(lrTest[1], ctTest[1],rfTest[1]),1))
-    })
-    
+      tuneGrid = data.frame(mtry = seq(round(length(input$rForestVars)/2),length(input$rForestVars),1))
+    )}, message = "training random forest")
   })
+  
+  output$lrStats <- renderPrint({
+    lrTrain()
+  })
+  
+  output$ctStats <- renderPrint({
+    ctTrain()
+  })
+  
+  output$rfStats <- renderPrint({
+    rfTrain()
+  })
+
+    
+#output$fitStats <- renderDataTable({
+#  data.frame(Models = c("Linear Regression","Classification Tree","Random Forest"),
+#             RMSE = round(c(lrTest[1], ctTest[1],rfTest[1]),1))
+#})
+    
+
   
     # TODO: execute model predict when user changes input and clicks button
     # TODO: render data table with user subsets
