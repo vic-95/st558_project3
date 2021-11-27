@@ -119,28 +119,31 @@ shinyUI(
               ),
               selectInput(
                 "linregVars", label = strong("Variables for the linear regression model"),
-                choices = predVec,
-                selected = predVec,
+                choices = finPred,
+                selected = finPred,
                 multiple = TRUE
               ),
               selectInput(
                 "clTreeVars", label = strong("Variables for the regression tree model"),
-                choices = predVec,
-                selected = predVec,
+                choices = finPred,
+                selected = finPred,
                 multiple = TRUE
               ),
               selectInput(
                 "rForestVars", label = strong("Variables for the random forest model"),
-                choices = predVec,
-                selected = predVec,
+                choices = finPred,
+                selected = finPred,
                 multiple = TRUE
               ),
               actionButton("modelGo", "Train Models")
             ),
             mainPanel(
               verbatimTextOutput("lrStats"),
+              verbatimTextOutput("lrPred"),
               verbatimTextOutput("ctStats"),
-              verbatimTextOutput("rfStats")
+              verbatimTextOutput("ctPred"),
+              verbatimTextOutput("rfStats"),
+              verbatimTextOutput("rfPred")
             )
           )
         ),

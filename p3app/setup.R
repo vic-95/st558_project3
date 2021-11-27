@@ -2,7 +2,8 @@
 library(tidyverse)
 library(magrittr)
 library(fastDummies)
-#library(mathJax)
+
+set.seed(72)
 
 rawData <- read_csv("../online_shoppers_intention.csv") # the data set as-is
 
@@ -31,8 +32,6 @@ numVars <- c("Administrative",
 theT <- rawData %<>%
   mutate_at(catVars, factor) # mass converting categorical variables to factors with infix function from magrittr
 
-
-
 theModelT <- dummy_cols(
   theT,
   select_columns = catVars[ ! catVars %in% c("Revenue")],
@@ -41,19 +40,46 @@ theModelT <- dummy_cols(
   ignore_na = FALSE,
   split = TRUE,
   remove_selected_columns = TRUE
-) # the data set with dummy cols for factor/categorical vars
-  
-modNames <- names(theT)
+)
+# turning categorical variables into numeric dummy columns. 
+# Caret can do this for me I noticed, but I have more control this way (was seeing issues I had to step in and fix)
 
+nzv <- nearZeroVar(theModelT, saveMetrics = TRUE)
+nzvNames <- nzv %>%
+  filter(nzv == TRUE) %>%
+    rownames()
+# I had some issues with warnings being thrown about zero-variance columns during cross validation. 
+# Choosing to deal with this by preemptively removing near-zero variance columns from the data.
+
+sansNZV <- theModelT %>%
+  select(-one_of(nzvNames)) 
+
+c <- cor(finalData %>% select(-Revenue))
+
+cTib <- as_tibble(c) %>%
+  mutate(v1 = names(as_tibble(c))) %>%
+  pivot_longer(cols = !v1, names_to = "v2", values_to = "corr") %>%
+  filter(abs(corr) == 1 & v1 != v2)
+# I was seeing rank deficiency issues in my models and figured out it was because of 100% correlated predictors.
+# This allows me to root out and eliminate to superfluous predictor. I mean it was obviously the boolean value weekend, but...
+
+finalData <- sansNZV %>% select(-Weekend_FALSE) # I could have probably done this programatically but...
+
+modNames <- names(theT)
 predVec <- modNames[ ! modNames %in% c("Revenue")]
+# these are variable names to be used in the UI for user selection in the data exploration part
+
+finNames <- names(finalData)
+finPred <- finNames[! finNames %in% c("Revenue")]
+# these are variable names to be used in the UI for user selection in the modeling part
 
 #########################
-# 
-# index <- createDataPartition(y = theT$Revenue , p = input$dataSplit, list = FALSE)
+
+# index <- createDataPartition(y = theT$Revenue , p = 0.8, list = FALSE)
 # trdata <- data.frame(theT[index,])
 # tsdata <- data.frame(theT[-index,])
 # 
-# ctTrain <- 
+# ctTrain <-
 #     train(
 #       Revenue ~ .,
 #       data = trdata,
@@ -62,7 +88,11 @@ predVec <- modNames[ ! modNames %in% c("Revenue")]
 #       trControl = trainControl(method = "cv", number = 10)
 #     )
 # 
-# rfTrain <- 
+# pred <- predict(ctTrain, newData = tsdata)
+# p2 <- round(postResample(pred, obs = tsdata$Revenue),4)
+# 
+
+# rfTrain <-
 #     train(
 #       Revenue ~ .,
 #       data = trdata,

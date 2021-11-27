@@ -74,25 +74,30 @@ shinyServer(function(input, output, session) {
                     )
   }) # data table that allows for filtering values of categorical by-vars
   
-    # TODO: split data into training and test based on user ratio
-  
-  
-  
-  index <- eventReactive(input$modelGo, {createDataPartition(y = theT$Revenue , p = input$dataSplit, list = FALSE)})
-  trdata <- eventReactive(input$modelGo, {data.frame(theT[index(),])})
-  tsdata <- eventReactive(input$modelGo, {data.frame(theT[-index(),])})
+  index <- eventReactive(input$modelGo, {createDataPartition(y = finalData$Revenue , p = input$dataSplit, list = FALSE)})
+  trdata <- eventReactive(input$modelGo, {data.frame(finalData[index(),])})
+  tsdata <- eventReactive(input$modelGo, {data.frame(finalData[-index(),])})
+  # splitting data into training/test on action
     
   lrTrain <- eventReactive(input$modelGo, {
     withProgress({
-    train(
-      as.formula(paste("Revenue ~ ", paste(input$linregVars, collapse = "+"))),
-      data = trdata(),
-      method = "glm",
-      family = "binomial",
-      preProcess = c("center","scale"),
-      trControl = trainControl(method = "cv", number = 10)
-    )}, message = "training glm")
+      train(
+        as.formula(paste("Revenue ~ ", paste(input$linregVars, collapse = "+"))),
+        data = trdata(),
+        method = "glm",
+        family = "binomial",
+        preProcess = c("center","scale"),
+        trControl = trainControl(method = "cv", number = 10)
+    )}, message = "GLM: Training Model", detail = "this part should be quick")
+  }) # training glm model on action (with a progress bar)
+  
+  lrTest <- eventReactive(input$modelGo, {
+    withProgress({
+      pred <- predict(lrTrain(), newData = tsdata())
+      round(postResample(pred, obs = tsdata()$Revenue),4)
+    }, message = "GLM: Testing Model", detail = "this part should be quick")
   })
+  
     
   ctTrain <- eventReactive(input$modelGo, {
     withProgress({
@@ -102,7 +107,14 @@ shinyServer(function(input, output, session) {
       method = "rpart",
       preProcess = c("center","scale"),
       trControl = trainControl(method = "cv", number = 10)
-    )}, message = "training tree")
+    )}, message = "Classification Tree: Training Model", detail = "this part should be quick")
+  }) # training classification tree on action (with a progress bar)
+  
+  ctTest <- eventReactive(input$modelGo, {
+    withProgress({
+      pred <- predict(ctTrain(), newData = tsdata())
+      round(postResample(pred, obs = tsdata()$Revenue),4)
+    }, message = "Classification Tree: Testing Model", detail = "this part should be quick")
   })
     
   rfTrain <- eventReactive(input$modelGo, {
@@ -113,30 +125,40 @@ shinyServer(function(input, output, session) {
       method = "rf",
       preProcess = c("center", "scale"),
       trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
-      tuneGrid = data.frame(mtry = seq(round(length(input$rForestVars)/2),length(input$rForestVars),1))
-    )}, message = "training random forest")
-  })
-  
+      tuneGrid = data.frame(mtry = seq(1,length(input$rForestVars),1))
+    )}, message = "Random Forest: Training Model", detail = "this part might take a while")
+  }) # training random forest on action (with a progress bar)
+
+  rfTest <- eventReactive(input$modelGo, {
+    withProgress({
+      pred <- predict(rfTrain(), newData = tsdata())
+      round(postResample(pred, obs = tsdata()$Revenue),4)
+    }, message = "Random Forest: Testing Model", detail = "this part should be quick")
+  })  
+    
   output$lrStats <- renderPrint({
     lrTrain()
+  }) # print the output of the training
+  
+  output$lrPred <- renderPrint({
+    lrTest()
   })
   
   output$ctStats <- renderPrint({
     ctTrain()
+  }) # print the output of the training
+  
+  output$ctPred <- renderPrint({
+    ctTest()
   })
   
   output$rfStats <- renderPrint({
     rfTrain()
-  })
-
-    
-#output$fitStats <- renderDataTable({
-#  data.frame(Models = c("Linear Regression","Classification Tree","Random Forest"),
-#             RMSE = round(c(lrTest[1], ctTest[1],rfTest[1]),1))
-#})
-    
-
+  }) # print the output of the training
   
+  output$rfPred <- renderPrint({
+    rfTest()
+  })
     # TODO: execute model predict when user changes input and clicks button
     # TODO: render data table with user subsets
  
