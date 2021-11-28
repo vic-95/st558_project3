@@ -2,6 +2,7 @@
 library(tidyverse)
 library(magrittr)
 library(fastDummies)
+library(caret)
 
 set.seed(72)
 
@@ -48,13 +49,13 @@ nzv <- nearZeroVar(theModelT, saveMetrics = TRUE)
 nzvNames <- nzv %>%
   filter(nzv == TRUE) %>%
     rownames()
-# I had some issues with warnings being thrown about zero-variance columns during cross validation. 
-# Choosing to deal with this by preemptively removing near-zero variance columns from the data.
 
 sansNZV <- theModelT %>%
   select(-one_of(nzvNames)) 
+# I had some issues with warnings being thrown about zero-variance columns during cross validation. 
+# Choosing to deal with this by preemptively removing near-zero variance columns from the data.
 
-c <- cor(finalData %>% select(-Revenue))
+c <- cor(sansNZV %>% select(-Revenue))
 
 cTib <- as_tibble(c) %>%
   mutate(v1 = names(as_tibble(c))) %>%

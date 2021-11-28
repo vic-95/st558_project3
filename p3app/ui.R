@@ -113,6 +113,7 @@ shinyUI(
           sidebarLayout(
             sidebarPanel(
               h3("Fitting the Models"),
+              checkboxInput("para", "Allow Parallel Processing?", TRUE),
               sliderInput(
                 "dataSplit", label = strong("Select the proportion of data to use for model training"),
                 min = 0, max = 1, value = 0.8
@@ -138,11 +139,11 @@ shinyUI(
               actionButton("modelGo", "Train Models")
             ),
             mainPanel(
-              verbatimTextOutput("lrStats"),
+              plotOutput("lrStats"),
               verbatimTextOutput("lrPred"),
-              verbatimTextOutput("ctStats"),
+              plotOutput("ctStats"),
               verbatimTextOutput("ctPred"),
-              verbatimTextOutput("rfStats"),
+              plotOutput("rfStats"),
               verbatimTextOutput("rfPred")
             )
           )
@@ -151,7 +152,16 @@ shinyUI(
           "Prediction",
           sidebarLayout(
             sidebarPanel(
+              h3("Predict"),
+              conditionalPanel(
+                condition = "input.modelGo == 0",
+                p("Please train the models before using them to predict.")
+              ),
+              conditionalPanel(
+                condition = "input.modelGo != 0",
+                p("Please select values for each predictor used in the model:")
                 
+              )
             ),
             mainPanel(
               
@@ -166,7 +176,7 @@ shinyUI(
             
           ),
           mainPanel(
-          
+            dataTableOutput(theT)
           )
         )
       )

@@ -88,14 +88,14 @@ shinyServer(function(input, output, session) {
         family = "binomial",
         preProcess = c("center","scale"),
         trControl = trainControl(method = "cv", number = 10)
-    )}, message = "GLM: Training Model", detail = "this part should be quick")
+    )}, message = "GLM: Training", detail = "this part should be quick")
   }) # training glm model on action (with a progress bar)
   
   lrTest <- eventReactive(input$modelGo, {
     withProgress({
       pred <- predict(lrTrain(), newData = tsdata())
       round(postResample(pred, obs = tsdata()$Revenue),4)
-    }, message = "GLM: Testing Model", detail = "this part should be quick")
+    }, message = "GLM: Testing", detail = "this part should be quick")
   })
   
     
@@ -107,59 +107,89 @@ shinyServer(function(input, output, session) {
       method = "rpart",
       preProcess = c("center","scale"),
       trControl = trainControl(method = "cv", number = 10)
-    )}, message = "Classification Tree: Training Model", detail = "this part should be quick")
+    )}, message = "Classification Tree: Training", detail = "this part should be quick")
   }) # training classification tree on action (with a progress bar)
   
   ctTest <- eventReactive(input$modelGo, {
     withProgress({
       pred <- predict(ctTrain(), newData = tsdata())
       round(postResample(pred, obs = tsdata()$Revenue),4)
-    }, message = "Classification Tree: Testing Model", detail = "this part should be quick")
+    }, message = "Classification Tree: Testing", detail = "this part should be quick")
   })
     
   rfTrain <- eventReactive(input$modelGo, {
-    withProgress({
-    train(
-      as.formula(paste("Revenue ~ ", paste(input$rForestVars, collapse = "+"))),
-      data = trdata(),
-      method = "rf",
-      preProcess = c("center", "scale"),
-      trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
-      tuneGrid = data.frame(mtry = seq(1,length(input$rForestVars),1))
-    )}, message = "Random Forest: Training Model", detail = "this part might take a while")
+    if(input$para) {
+      withProgress({
+        library(parallel) # just bringing this in for the ability to detect cores. Couldn't find that in doParallel
+        library(doParallel)
+        cores <- detectCores()
+        cluster <- makePSOCKcluster(cores - 1)
+        
+        registerDoParallel(cluster)
+        
+        tr <- train(
+          as.formula(paste("Revenue ~ ", paste(input$rForestVars, collapse = "+"))),
+          data = trdata(),
+          method = "rf",
+          preProcess = c("center", "scale"),
+          trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
+          tuneGrid = data.frame(mtry = seq(1,length(input$rForestVars),1))
+        )
+        
+        stopCluster(cluster)
+        
+        tr
+      }, message = "Random Forest: Training", detail = "This part might take a while")
+    } else {
+      withProgress({
+        train(
+          as.formula(paste("Revenue ~ ", paste(input$rForestVars, collapse = "+"))),
+          data = trdata(),
+          method = "rf",
+          preProcess = c("center", "scale"),
+          trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
+          tuneGrid = data.frame(mtry = seq(1,length(input$rForestVars),1))
+        )
+      }, message = "Random Forest: Training", detail = "this part will take a long time")
+    }
   }) # training random forest on action (with a progress bar)
 
   rfTest <- eventReactive(input$modelGo, {
     withProgress({
       pred <- predict(rfTrain(), newData = tsdata())
       round(postResample(pred, obs = tsdata()$Revenue),4)
-    }, message = "Random Forest: Testing Model", detail = "this part should be quick")
+    }, message = "Random Forest: Testing", detail = "this part should be quick")
   })  
     
-  output$lrStats <- renderPrint({
-    lrTrain()
+  output$lrStats <- renderPlot({
+    plot(lrTrain())
   }) # print the output of the training
   
   output$lrPred <- renderPrint({
     lrTest()
   })
   
-  output$ctStats <- renderPrint({
-    ctTrain()
+  output$ctStats <- renderPlot({
+    plot(ctTrain())
   }) # print the output of the training
   
   output$ctPred <- renderPrint({
     ctTest()
   })
   
-  output$rfStats <- renderPrint({
-    rfTrain()
+  output$rfStats <- renderPlot({
+    plot(rfTrain())
   }) # print the output of the training
   
   output$rfPred <- renderPrint({
     rfTest()
   })
     # TODO: execute model predict when user changes input and clicks button
+  output$varOps <- renderUI({
+    tagList(
+      # TODO: I think I need to create a widget for each variable and call them if they are in the var list.
+    )
+  })
     # TODO: render data table with user subsets
- 
+  output$theT <- renderDataTable(theT)
 })
