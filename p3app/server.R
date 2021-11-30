@@ -186,9 +186,13 @@ shinyServer(function(input, output, session) {
   })
     # TODO: execute model predict when user changes input and clicks button
   output$varOps <- renderUI({
-    tagList(
-      # TODO: I think I need to create a widget for each variable and call them if they are in the var list.
-    )
+    purrr::map(input$linregVars, ~ {
+      if(.x %in% numVars) {
+        sliderInput(.x, paste0("Variable ", .x), min = 0, max = round(max(finalData[[.x]])), value = 0)
+      } else {
+        checkboxInput(.x, paste0("Variable ", .x), value = FALSE)
+      }
+    })
   })
     # TODO: render data table with user subsets
   output$theT <- renderDataTable(theT)

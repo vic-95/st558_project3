@@ -159,8 +159,8 @@ shinyUI(
               ),
               conditionalPanel(
                 condition = "input.modelGo != 0",
-                p("Please select values for each predictor used in the model:")
-                
+                p("Please select values for each predictor used in the model:"),
+                uiOutput("varOps")
               )
             ),
             mainPanel(
