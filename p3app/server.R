@@ -10,8 +10,10 @@
 
 library(shiny)
 library(caret)
-library(tree)
+library(rpart.plot)
 library(randomForest)
+library(effects)
+library(tree)
 
 source("setup.R")
 
@@ -74,16 +76,16 @@ shinyServer(function(input, output, session) {
                     )
   }) # data table that allows for filtering values of categorical by-vars
   
-  index <- eventReactive(input$modelGo, {createDataPartition(y = finalData$Revenue , p = input$dataSplit, list = FALSE)})
-  trdata <- eventReactive(input$modelGo, {data.frame(finalData[index(),])})
-  tsdata <- eventReactive(input$modelGo, {data.frame(finalData[-index(),])})
+  indexLR <- eventReactive(input$modelGo, {createDataPartition(y = finalData$Revenue , p = input$lrDataSplit, list = FALSE)})
+  trdataLR <- eventReactive(input$modelGo, {data.frame(finalData[indexLR(),])})
+  tsdataLR <- eventReactive(input$modelGo, {data.frame(finalData[-indexLR(),])})
   # splitting data into training/test on action
     
   lrTrain <- eventReactive(input$modelGo, {
     withProgress({
       train(
         as.formula(paste("Revenue ~ ", paste(input$linregVars, collapse = "+"))),
-        data = trdata(),
+        data = trdataLR(),
         method = "glm",
         family = "binomial",
         preProcess = c("center","scale"),
@@ -93,17 +95,30 @@ shinyServer(function(input, output, session) {
   
   lrTest <- eventReactive(input$modelGo, {
     withProgress({
-      pred <- predict(lrTrain(), newData = tsdata())
-      round(postResample(pred, obs = tsdata()$Revenue),4)
+      pred <- predict(lrTrain(), newData = tsdataLR())
+      round(postResample(pred, obs = tsdataLR()$Revenue),4)
     }, message = "GLM: Testing", detail = "this part should be quick")
   })
   
+  output$lrResult <- renderDataTable({
+    lrTrain()$results %>%
+      mutate_at(c("Accuracy", "Kappa", "AccuracySD", "KappaSD"), round, digits = 4)
+  })
+  
+  output$lrSumm <- renderPrint({
+    summary(lrTrain())
+  }) # print the output of the training
+  
+  indexCT <- eventReactive(input$modelGo, {createDataPartition(y = finalData$Revenue , p = input$ctDataSplit, list = FALSE)})
+  trdataCT <- eventReactive(input$modelGo, {data.frame(finalData[indexCT(),])})
+  tsdataCT <- eventReactive(input$modelGo, {data.frame(finalData[-indexCT(),])})
+  # splitting data into training/test on action
     
   ctTrain <- eventReactive(input$modelGo, {
     withProgress({
     train(
       as.formula(paste("Revenue ~ ", paste(input$clTreeVars, collapse = "+"))),
-      data = trdata(),
+      data = trdataCT(),
       method = "rpart",
       preProcess = c("center","scale"),
       trControl = trainControl(method = "cv", number = 10)
@@ -112,10 +127,25 @@ shinyServer(function(input, output, session) {
   
   ctTest <- eventReactive(input$modelGo, {
     withProgress({
-      pred <- predict(ctTrain(), newData = tsdata())
-      round(postResample(pred, obs = tsdata()$Revenue),4)
+      pred <- predict(ctTrain(), newData = tsdataCT())
+      round(postResample(pred, obs = tsdataCT()$Revenue),4)
     }, message = "Classification Tree: Testing", detail = "this part should be quick")
   })
+  
+  output$ctResult <- renderDataTable({
+    ctTrain()$results %>%
+      slice_max(Accuracy, n = 1) %>%
+        mutate_all(round, digits = 4)
+  })
+  
+  output$ctPlot <- renderPlot({
+    plot(tree(ctTrain())); text(tree(ctTrain()))
+  }) # print the output of the training
+  
+  indexRF <- eventReactive(input$modelGo, {createDataPartition(y = finalData$Revenue , p = input$rfDataSplit, list = FALSE)})
+  trdataRF <- eventReactive(input$modelGo, {data.frame(finalData[indexRF(),])})
+  tsdataRF <- eventReactive(input$modelGo, {data.frame(finalData[-indexRF(),])})
+  # splitting data into training/test on action
     
   rfTrain <- eventReactive(input$modelGo, {
     if(input$para) {
@@ -129,10 +159,10 @@ shinyServer(function(input, output, session) {
         
         tr <- train(
           as.formula(paste("Revenue ~ ", paste(input$rForestVars, collapse = "+"))),
-          data = trdata(),
+          data = trdataRF(),
           method = "rf",
           preProcess = c("center", "scale"),
-          trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
+          trControl = trainControl(method = "cv", number = 5),
           tuneGrid = data.frame(mtry = seq(1,length(input$rForestVars),1))
         )
         
@@ -144,7 +174,7 @@ shinyServer(function(input, output, session) {
       withProgress({
         train(
           as.formula(paste("Revenue ~ ", paste(input$rForestVars, collapse = "+"))),
-          data = trdata(),
+          data = trdataRF(),
           method = "rf",
           preProcess = c("center", "scale"),
           trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
@@ -156,44 +186,50 @@ shinyServer(function(input, output, session) {
 
   rfTest <- eventReactive(input$modelGo, {
     withProgress({
-      pred <- predict(rfTrain(), newData = tsdata())
-      round(postResample(pred, obs = tsdata()$Revenue),4)
+      pred <- predict(rfTrain(), newData = tsdataRF())
+      round(postResample(pred, obs = tsdataRF()$Revenue),4)
     }, message = "Random Forest: Testing", detail = "this part should be quick")
   })  
     
-  output$lrStats <- renderPlot({
-    plot(lrTrain())
+  output$rfResult <- renderDataTable({
+    rfTrain()$results %>%
+      slice_max(Accuracy, n = 1) %>%
+        mutate_at(c("Accuracy", "Kappa", "AccuracySD", "KappaSD"), round, digits = 4)
+    
+  }) # print the output of the training\
+  
+  output$rfVarImp <- renderPlot({
+    imp <- varImp(rfTrain(), scale = FALSE)
+    plot(imp)
   }) # print the output of the training
   
-  output$lrPred <- renderPrint({
-    lrTest()
-  })
-  
-  output$ctStats <- renderPlot({
-    plot(ctTrain())
-  }) # print the output of the training
-  
-  output$ctPred <- renderPrint({
-    ctTest()
-  })
-  
-  output$rfStats <- renderPlot({
-    plot(rfTrain())
-  }) # print the output of the training
-  
-  output$rfPred <- renderPrint({
-    rfTest()
+  output$predComp <- renderDataTable({
+    data.frame(
+      Model = c("GLM","Classification Tree","Random Forest"),
+      Accuracy = round(c(lrTest()[1], ctTest()[1], rfTest()[1]),4),
+      Kappa = round(c(lrTest()[2], ctTest()[2], rfTest()[2]),4)
+    )
   })
     # TODO: execute model predict when user changes input and clicks button
   output$varOps <- renderUI({
     purrr::map(input$linregVars, ~ {
       if(.x %in% numVars) {
-        sliderInput(.x, paste0("Variable ", .x), min = 0, max = round(max(finalData[[.x]])), value = 0)
+        sliderInput(.x, paste0("Variable ", .x), min = round(min(finalData[[.x]])), max = round(max(finalData[[.x]])), value = 0)
       } else {
         checkboxInput(.x, paste0("Variable ", .x), value = FALSE)
       }
     })
   })
+  
+  predValues <- eventReactive(input$predGo, {
+    df <- data.frame(unlist(purrr::map(input$linregVars, ~ {get(paste0("input$", .x))})))
+    predict(lrTrain(), newData = df, type = "prob")
+  })
+  
+  output$userPred <- renderPrint({
+    predValues()
+  })
+  
     # TODO: render data table with user subsets
   output$theT <- renderDataTable(theT)
 })

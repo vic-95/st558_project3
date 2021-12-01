@@ -3,6 +3,10 @@ library(tidyverse)
 library(magrittr)
 library(fastDummies)
 library(caret)
+library(doParallel)
+
+registerDoSEQ() # in case the session ends before the cluster is terminated. 
+# There's optional parallel processing for the random forest
 
 set.seed(72)
 
@@ -76,22 +80,23 @@ finPred <- finNames[! finNames %in% c("Revenue")]
 
 #########################
 
-# index <- createDataPartition(y = theT$Revenue , p = 0.8, list = FALSE)
-# trdata <- data.frame(theT[index,])
-# tsdata <- data.frame(theT[-index,])
+# index <- createDataPartition(y = finalData$Revenue , p = 0.8, list = FALSE)
+# trdata <- data.frame(finalData[index,])
+# tsdata <- data.frame(finalData[-index,])
 # 
 # ctTrain <-
 #     train(
 #       Revenue ~ .,
 #       data = trdata,
-#       method = "rpart",
+#       method = "glm",
+#       family = "binomial",
 #       preProcess = c("center","scale"),
 #       trControl = trainControl(method = "cv", number = 10)
 #     )
 # 
 # pred <- predict(ctTrain, newData = tsdata)
 # p2 <- round(postResample(pred, obs = tsdata$Revenue),4)
-# 
+#
 
 # rfTrain <-
 #     train(

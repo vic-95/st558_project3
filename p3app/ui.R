@@ -110,41 +110,88 @@ shinyUI(
         ),
         tabPanel(
           "Model Fitting",
-          sidebarLayout(
-            sidebarPanel(
-              h3("Fitting the Models"),
-              checkboxInput("para", "Allow Parallel Processing?", TRUE),
+          fluidRow(
+            column(4,
+              titlePanel("Fitting the Models")
+            ),
+            column(8,
+              conditionalPanel(condition = "! input.modelGo", p("Model fit statistics and summaries will display here once the models are trained. Click the 'Train Models' button when you're ready"))
+            )
+          ),
+          fluidRow(
+            column(4,
+              h4("GLM Binomial"),
               sliderInput(
-                "dataSplit", label = strong("Select the proportion of data to use for model training"),
+                "lrDataSplit", label = strong("Select the proportion of data to use for model training"),
                 min = 0, max = 1, value = 0.8
               ),
               selectInput(
-                "linregVars", label = strong("Variables for the linear regression model"),
+                "linregVars", label = strong("Variables for the binomial GLM"),
                 choices = finPred,
                 selected = finPred,
                 multiple = TRUE
+              )
+            ),
+            column(8,
+                conditionalPanel(condition = "input.modelGo", h4("Results")),
+                dataTableOutput("lrResult"),
+                br(),
+                conditionalPanel(condition = "input.modelGo", h4("Summary")),
+                verbatimTextOutput("lrSumm"),
+            )
+          ),
+          fluidRow(
+            column(4,
+              h4("Classification Tree"),
+              sliderInput(
+                "ctDataSplit", label = strong("Select the proportion of data to use for model training"),
+                min = 0, max = 1, value = 0.8
               ),
               selectInput(
-                "clTreeVars", label = strong("Variables for the regression tree model"),
+                "clTreeVars", label = strong("Variables for the classification tree"),
                 choices = finPred,
                 selected = finPred,
                 multiple = TRUE
+              )
+            ),
+            column(8,
+              conditionalPanel(condition = "input.modelGo", h4("Results")),
+              dataTableOutput("ctResult"),
+              br(),
+              conditionalPanel(condition = "input.modelGo", h4("Tree Visualization")),
+              plotOutput("ctPlot")
+            )
+          ),
+          fluidRow(
+            column(4,
+              h4("Random Forest"),
+              sliderInput(
+                "rfDataSplit", label = strong("Select the proportion of data to use for model training"),
+                min = 0, max = 1, value = 0.8
               ),
               selectInput(
                 "rForestVars", label = strong("Variables for the random forest model"),
                 choices = finPred,
                 selected = finPred,
                 multiple = TRUE
-              ),
+              )
+            ),
+            column(8,
+              conditionalPanel(condition = "input.modelGo", h4("Results")),
+              dataTableOutput("rfResult"),
+              br(),
+              conditionalPanel(condition = "input.modelGo", h4("Variable Importance")),
+              plotOutput("rfVarImp")
+            )
+          ),
+          fluidRow(
+            column(4,
+              checkboxInput("para", "Allow Parallel Processing?", TRUE),
               actionButton("modelGo", "Train Models")
             ),
-            mainPanel(
-              plotOutput("lrStats"),
-              verbatimTextOutput("lrPred"),
-              plotOutput("ctStats"),
-              verbatimTextOutput("ctPred"),
-              plotOutput("rfStats"),
-              verbatimTextOutput("rfPred")
+            column(8,
+              conditionalPanel(condition = "input.modelGo", h4("Comparing All Models on the Test Data")),
+              dataTableOutput("predComp")
             )
           )
         ),
@@ -161,10 +208,11 @@ shinyUI(
                 condition = "input.modelGo != 0",
                 p("Please select values for each predictor used in the model:"),
                 uiOutput("varOps")
-              )
+              ),
+              actionButton("predGo", "Predict Outcome")
             ),
             mainPanel(
-              
+              verbatimTextOutput("userPred")
             )
           )
         )
