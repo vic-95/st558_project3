@@ -3,12 +3,9 @@ library(tidyverse)
 library(magrittr)
 library(fastDummies)
 library(caret)
-library(doParallel)
+library(ranger)
 
-registerDoSEQ() # in case the session ends before the cluster is terminated. 
-# There's optional parallel processing for the random forest
-
-set.seed(72)
+set.seed(108)
 
 rawData <- read_csv("../online_shoppers_intention.csv") # the data set as-is
 
@@ -84,9 +81,11 @@ finPred <- finNames[! finNames %in% c("Revenue")]
 # trdata <- data.frame(finalData[index,])
 # tsdata <- data.frame(finalData[-index,])
 # 
+# vec <- c("Administrative", "Administrative_Duration")
+# 
 # ctTrain <-
 #     train(
-#       Revenue ~ .,
+#       Revenue ~ Administrative + Administrative_Duration,
 #       data = trdata,
 #       method = "glm",
 #       family = "binomial",
@@ -94,16 +93,27 @@ finPred <- finNames[! finNames %in% c("Revenue")]
 #       trControl = trainControl(method = "cv", number = 10)
 #     )
 # 
-# pred <- predict(ctTrain, newData = tsdata)
-# p2 <- round(postResample(pred, obs = tsdata$Revenue),4)
+# # pred <- predict(ctTrain, newData = tsdata)
+# # p2 <- round(postResample(pred, obs = tsdata$Revenue),4)
+# 
+# df <- data.frame(matrix(data = vector(), nrow = 0, ncol = length(vec)))
+# vals <- unlist(lapply(vec, function(.x) {return(runif(1,0,1))}))
+# 
+# df <- rbind(df, vals)
+# names(df) <- vec
+# 
+# df
 #
-
-# rfTrain <-
-#     train(
-#       Revenue ~ .,
-#       data = trdata,
-#       method = "rf",
-#       preProcess = c("center", "scale"),
-#       trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
-#       tuneGrid = data.frame(mtry = seq(5,10,1))
-#     )
+# 
+# tr <- train(
+#   Revenue ~ .,
+#   data = trdata,
+#   method = "ranger",
+#   importance = "impurity",
+#   preProcess = c("center", "scale"),
+#   trControl = trainControl(method = "cv", number = 5),
+#   tuneGrid = expand.grid(mtry = seq(1:10),
+#                          splitrule = "gini",
+#                          min.node.size = 1
+#   )
+# )

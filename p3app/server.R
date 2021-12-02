@@ -95,7 +95,7 @@ shinyServer(function(input, output, session) {
   
   lrTest <- eventReactive(input$modelGo, {
     withProgress({
-      pred <- predict(lrTrain(), newData = tsdataLR())
+      pred <- predict(lrTrain(), newdata = tsdataLR())
       round(postResample(pred, obs = tsdataLR()$Revenue),4)
     }, message = "GLM: Testing", detail = "this part should be quick")
   })
@@ -127,7 +127,7 @@ shinyServer(function(input, output, session) {
   
   ctTest <- eventReactive(input$modelGo, {
     withProgress({
-      pred <- predict(ctTrain(), newData = tsdataCT())
+      pred <- predict(ctTrain(), newdata = tsdataCT())
       round(postResample(pred, obs = tsdataCT()$Revenue),4)
     }, message = "Classification Tree: Testing", detail = "this part should be quick")
   })
@@ -148,45 +148,25 @@ shinyServer(function(input, output, session) {
   # splitting data into training/test on action
     
   rfTrain <- eventReactive(input$modelGo, {
-    if(input$para) {
-      withProgress({
-        library(parallel) # just bringing this in for the ability to detect cores. Couldn't find that in doParallel
-        library(doParallel)
-        cores <- detectCores()
-        cluster <- makePSOCKcluster(cores - 1)
-        
-        registerDoParallel(cluster)
-        
-        tr <- train(
-          as.formula(paste("Revenue ~ ", paste(input$rForestVars, collapse = "+"))),
-          data = trdataRF(),
-          method = "rf",
-          preProcess = c("center", "scale"),
-          trControl = trainControl(method = "cv", number = 5),
-          tuneGrid = data.frame(mtry = seq(1,length(input$rForestVars),1))
-        )
-        
-        stopCluster(cluster)
-        
-        tr
-      }, message = "Random Forest: Training", detail = "This part might take a while")
-    } else {
-      withProgress({
-        train(
-          as.formula(paste("Revenue ~ ", paste(input$rForestVars, collapse = "+"))),
-          data = trdataRF(),
-          method = "rf",
-          preProcess = c("center", "scale"),
-          trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
-          tuneGrid = data.frame(mtry = seq(1,length(input$rForestVars),1))
-        )
-      }, message = "Random Forest: Training", detail = "this part will take a long time")
-    }
+    withProgress({
+      train(
+        as.formula(paste("Revenue ~ ", paste(input$rForestVars, collapse = "+"))),
+        data = trdataRF(),
+        importance = "impurity",
+        method = "ranger",
+        preProcess = c("center", "scale"),
+        trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
+        tuneGrid = expand.grid(mtry = seq(1,length(input$rForestVars),1),
+                               splitrule = "gini",
+                               min.node.size = 1
+                              )
+      )
+    }, message = "Random Forest: Training", detail = "this part will take longer")
   }) # training random forest on action (with a progress bar)
 
   rfTest <- eventReactive(input$modelGo, {
     withProgress({
-      pred <- predict(rfTrain(), newData = tsdataRF())
+      pred <- predict(rfTrain(), newdata = tsdataRF())
       round(postResample(pred, obs = tsdataRF()$Revenue),4)
     }, message = "Random Forest: Testing", detail = "this part should be quick")
   })  
@@ -199,7 +179,7 @@ shinyServer(function(input, output, session) {
   }) # print the output of the training\
   
   output$rfVarImp <- renderPlot({
-    imp <- varImp(rfTrain(), scale = FALSE)
+    imp <- varImp(rfTrain())
     plot(imp)
   }) # print the output of the training
   
@@ -212,9 +192,9 @@ shinyServer(function(input, output, session) {
   })
     # TODO: execute model predict when user changes input and clicks button
   output$varOps <- renderUI({
-    purrr::map(input$linregVars, ~ {
+    purrr::map(input$rForestVars, ~ {
       if(.x %in% numVars) {
-        sliderInput(.x, paste0("Variable ", .x), min = round(min(finalData[[.x]])), max = round(max(finalData[[.x]])), value = 0)
+        sliderInput(.x, paste0("Variable ", .x), min = floor(min(finalData[[.x]])), max = ceiling(max(finalData[[.x]])), value = 0)
       } else {
         checkboxInput(.x, paste0("Variable ", .x), value = FALSE)
       }
@@ -222,12 +202,31 @@ shinyServer(function(input, output, session) {
   })
   
   predValues <- eventReactive(input$predGo, {
-    df <- data.frame(unlist(purrr::map(input$linregVars, ~ {get(paste0("input$", .x))})))
-    predict(lrTrain(), newData = df, type = "prob")
+    df <- data.frame(matrix(data = vector(), nrow = 0, ncol = length(input$rForestVars)))
+    vals <- unlist(lapply(input$rForestVars, function(x){return(input[[x]])}))
+    
+    df <- rbind(df, vals)
+    names(df) <- input$rForestVars
+    df
+    predict(rfTrain(), newdata = df, type = "prob")
+    
   })
   
-  output$userPred <- renderPrint({
-    predValues()
+  pred <- eventReactive(input$predGo, {
+    df <- data.frame(matrix(data = vector(), nrow = 0, ncol = length(input$rForestVars)))
+    vals <- unlist(lapply(input$rForestVars, function(x){return(input[[x]])}))
+    
+    df <- rbind(df, vals)
+    names(df) <- input$rForestVars
+    df
+    predict(rfTrain(), newdata = df)
+  })
+  
+  output$thePred <- renderText({
+    if(pred() == FALSE) {"False"} else {"True"}
+  })
+  output$userPred <- renderDataTable({
+    predValues() %>% mutate_at(c("TRUE", "FALSE"), round, digits = 4)
   })
   
     # TODO: render data table with user subsets

@@ -1,6 +1,5 @@
 
 library(shiny)
-#library(mathJax)
 
 source("setup.R")
 
@@ -186,8 +185,8 @@ shinyUI(
           ),
           fluidRow(
             column(4,
-              checkboxInput("para", "Allow Parallel Processing?", TRUE),
-              actionButton("modelGo", "Train Models")
+              actionButton("modelGo", "Train Models"),
+              br()
             ),
             column(8,
               conditionalPanel(condition = "input.modelGo", h4("Comparing All Models on the Test Data")),
@@ -212,7 +211,11 @@ shinyUI(
               actionButton("predGo", "Predict Outcome")
             ),
             mainPanel(
-              verbatimTextOutput("userPred")
+              p("User predicted to produce revenue:"),
+              textOutput("thePred"),
+              br(),
+              p("Probabilities:"),
+              dataTableOutput("userPred")
             )
           )
         )
