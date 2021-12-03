@@ -1,30 +1,22 @@
-#
-# This is the server logic of a Shiny web application. You can run the
-# application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
 
+source("setup.R") # setup variables & library imports and all that jazz
 
-library(shiny)
-library(caret)
-library(rpart.plot)
-library(randomForest)
-library(effects)
-library(tree)
-
-source("setup.R")
-
-# Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
-    
+  
+  ######################### Data Exploration tab #########################
+  
   observe({
     updateSelectInput(session, "xaxis", choices = if(input$graphType == 'scatter') {numVars} 
       else {catVars}
       )
   }) # this bit puts numeric vars in x axis choices for scatter plot, otherwise categorical
+  
+  output$visTitle <- renderUI({
+    x <- paste0(str_to_title(input$graphType), " Plot of ", input$xaxis)
+    y <- if(input$graphType == "bar"){""} else(paste0(" and ", input$yaxis))
+    by <- if(input$split == "None" | input$graphType == "box"){""} else{paste0(" by ", input$split)}
+    h4(paste0(x, y, by))
+  }) # Some dynamic UI for the title of the data exploration visual
   
   output$expVis <- renderPlot({
     if(input$graphType == "bar" & input$split == "None") {
@@ -61,6 +53,11 @@ shinyServer(function(input, output, session) {
     }
   }) # some really ugly if/else logic to get the right graph based on user selections
   
+  output$summTitle <- renderUI({
+    title <- paste0("Summary of ", input$summVar, " by ", input$byVar)
+    h4(title)
+  }) # Some dynamic UI for the title of the data exploration visual
+  
   observe({
     updateCheckboxGroupInput(session, "filterList", choices = unique(theT[[input$byVar]]), selected = unique(theT[[input$byVar]]))
   }) # change what options the filter box displays based on the by-variable. Select them all by default.
@@ -74,12 +71,14 @@ shinyServer(function(input, output, session) {
                     iqr = round(IQR(.data[[input$summVar]]), digits = 2),
                     sd = round(sd(.data[[input$summVar]]), digits = 2)
                     )
-  }) # data table that allows for filtering values of categorical by-vars
+  }, filter = "top") # data table that allows for filtering values of categorical by-vars
+  
+  ######################### Modeling.Model Training tab #########################
   
   indexLR <- eventReactive(input$modelGo, {createDataPartition(y = finalData$Revenue , p = input$lrDataSplit, list = FALSE)})
   trdataLR <- eventReactive(input$modelGo, {data.frame(finalData[indexLR(),])})
   tsdataLR <- eventReactive(input$modelGo, {data.frame(finalData[-indexLR(),])})
-  # splitting data into training/test on action
+  # splitting data into training/test on action for the glm
     
   lrTrain <- eventReactive(input$modelGo, {
     withProgress({
@@ -98,21 +97,21 @@ shinyServer(function(input, output, session) {
       pred <- predict(lrTrain(), newdata = tsdataLR())
       round(postResample(pred, obs = tsdataLR()$Revenue),4)
     }, message = "GLM: Testing", detail = "this part should be quick")
-  })
+  }) # testing glm model on action (with a progress bar)
   
   output$lrResult <- renderDataTable({
     lrTrain()$results %>%
       mutate_at(c("Accuracy", "Kappa", "AccuracySD", "KappaSD"), round, digits = 4)
-  })
+  }) # the results of the glm model on the training data
   
   output$lrSumm <- renderPrint({
     summary(lrTrain())
-  }) # print the output of the training
+  }) # the summary of the glm fit on the training data
   
   indexCT <- eventReactive(input$modelGo, {createDataPartition(y = finalData$Revenue , p = input$ctDataSplit, list = FALSE)})
   trdataCT <- eventReactive(input$modelGo, {data.frame(finalData[indexCT(),])})
   tsdataCT <- eventReactive(input$modelGo, {data.frame(finalData[-indexCT(),])})
-  # splitting data into training/test on action
+  # splitting data into training/test on action for the classification tree
     
   ctTrain <- eventReactive(input$modelGo, {
     withProgress({
@@ -130,22 +129,22 @@ shinyServer(function(input, output, session) {
       pred <- predict(ctTrain(), newdata = tsdataCT())
       round(postResample(pred, obs = tsdataCT()$Revenue),4)
     }, message = "Classification Tree: Testing", detail = "this part should be quick")
-  })
+  }) # testing classification tree on action (with a progress bar)
   
   output$ctResult <- renderDataTable({
     ctTrain()$results %>%
       slice_max(Accuracy, n = 1) %>%
         mutate_all(round, digits = 4)
-  })
+  }) # results of the classification tree model on the training data
   
   output$ctPlot <- renderPlot({
     plot(tree(ctTrain())); text(tree(ctTrain()))
-  }) # print the output of the training
+  }) # a tree plot with text of the classification tree model
   
   indexRF <- eventReactive(input$modelGo, {createDataPartition(y = finalData$Revenue , p = input$rfDataSplit, list = FALSE)})
   trdataRF <- eventReactive(input$modelGo, {data.frame(finalData[indexRF(),])})
   tsdataRF <- eventReactive(input$modelGo, {data.frame(finalData[-indexRF(),])})
-  # splitting data into training/test on action
+  # splitting data into training/test on action for the random forest model
     
   rfTrain <- eventReactive(input$modelGo, {
     withProgress({
@@ -155,33 +154,33 @@ shinyServer(function(input, output, session) {
         importance = "impurity",
         method = "ranger",
         preProcess = c("center", "scale"),
-        trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3),
+        trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3, classProbs = TRUE),
         tuneGrid = expand.grid(mtry = seq(1,length(input$rForestVars),1),
                                splitrule = "gini",
                                min.node.size = 1
                               )
       )
     }, message = "Random Forest: Training", detail = "this part will take longer")
-  }) # training random forest on action (with a progress bar)
+  }) # training random forest on action (with a progress bar). using mtry values 1 thru the number of variables entered for consideration
 
   rfTest <- eventReactive(input$modelGo, {
     withProgress({
       pred <- predict(rfTrain(), newdata = tsdataRF())
       round(postResample(pred, obs = tsdataRF()$Revenue),4)
     }, message = "Random Forest: Testing", detail = "this part should be quick")
-  })  
+  }) # testing random forest on the test data
     
   output$rfResult <- renderDataTable({
     rfTrain()$results %>%
       slice_max(Accuracy, n = 1) %>%
         mutate_at(c("Accuracy", "Kappa", "AccuracySD", "KappaSD"), round, digits = 4)
     
-  }) # print the output of the training\
+  }) # results of random forest on the training data
   
   output$rfVarImp <- renderPlot({
     imp <- varImp(rfTrain())
     plot(imp)
-  }) # print the output of the training
+  }) # variable importance plot for random forest
   
   output$predComp <- renderDataTable({
     data.frame(
@@ -189,8 +188,10 @@ shinyServer(function(input, output, session) {
       Accuracy = round(c(lrTest()[1], ctTest()[1], rfTest()[1]),4),
       Kappa = round(c(lrTest()[2], ctTest()[2], rfTest()[2]),4)
     )
-  })
-    # TODO: execute model predict when user changes input and clicks button
+  }) # combination of results on test data for all 3 models
+  
+  ######################### Modeling.Prediction tab #########################
+  
   output$varOps <- renderUI({
     purrr::map(input$rForestVars, ~ {
       if(.x %in% numVars) {
@@ -199,7 +200,7 @@ shinyServer(function(input, output, session) {
         checkboxInput(.x, paste0("Variable ", .x), value = FALSE)
       }
     })
-  })
+  }) # use the variables selected for use in the random forest model to make widgets so the user can make a custom observation
   
   predValues <- eventReactive(input$predGo, {
     df <- data.frame(matrix(data = vector(), nrow = 0, ncol = length(input$rForestVars)))
@@ -207,10 +208,9 @@ shinyServer(function(input, output, session) {
     
     df <- rbind(df, vals)
     names(df) <- input$rForestVars
-    df
     predict(rfTrain(), newdata = df, type = "prob")
     
-  })
+  }) # when the user hits the button, make a teeny tiny data frame with the observation and var names and run a predict on it with probabilities
   
   pred <- eventReactive(input$predGo, {
     df <- data.frame(matrix(data = vector(), nrow = 0, ncol = length(input$rForestVars)))
@@ -218,17 +218,37 @@ shinyServer(function(input, output, session) {
     
     df <- rbind(df, vals)
     names(df) <- input$rForestVars
-    df
     predict(rfTrain(), newdata = df)
-  })
+  }) # when the user hits the button, make a teeny tiny data frame with the observation and var names and run a predict on it
   
-  output$thePred <- renderText({
-    if(pred() == FALSE) {"False"} else {"True"}
+  output$thePred <- renderUI({
+    if(pred() == FALSE) {h4("This observation is not predicted to produce revenue")} else {"This observation is predicted to produce revenue"}
   })
   output$userPred <- renderDataTable({
-    predValues() %>% mutate_at(c("TRUE", "FALSE"), round, digits = 4)
+    predValues() %>% mutate_all(round, digits = 4)
   })
   
-    # TODO: render data table with user subsets
-  output$theT <- renderDataTable(theT)
+  ######################### Data tab #########################
+  
+  observe({
+    updateSelectInput(session, "dataCols", label = NULL, choices = NULL,
+                      selected = if(input$filterCol){NULL} else{names(theT)})
+  })
+  
+  uEdits <- reactive({
+    theT %>%
+      select(all_of(input$dataCols))
+  })
+  
+  output$theT <- renderDataTable({uEdits()}, filter = "top")
+  
+  output$dlData <- downloadHandler(
+    filename = function() {
+      paste0("customer_intent_",Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      write.csv(uEdits(), file, row.names = FALSE)
+    }
+  )
+  
 })

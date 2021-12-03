@@ -5,34 +5,67 @@ source("setup.R")
 
 # Define UI for application that draws a histogram
 shinyUI(
-  fluidPage(
+  fluidPage(theme = shinytheme("simplex"),
     navbarPage(
       "Ecommerce Purchase Intent", # Application title
       tabPanel(
         "About",
-        sidebarLayout(
-          sidebarPanel(
-            
-          ),
-          mainPanel(
+        fluidRow(
+          column(12,
             h2(" About the App"),
-            HTML("<div>
-                    <img src = 'noun_online shopping_1605024.svg' width = '100px' height = 'auto' align = 'left' alt = 'online shopping icon'>
-                    <p> This app provides an interface for the user to explore, analyze, and model ecommerce session behavior and its impact on purchase.</p>
-                    <p>The data set from the UCI Machine Learning repository contains information about the purchase intent behavior of website visitors. It details all of a users' visits in a 1 yr period: length, duration, types of content viewed, and whether they ultimately made an ecommerce purchase.</p>
-                  </div>"
-            ),
+            HTML("<p style='text-align:center;'><img src = 'ecommerce_stock_photo_unsplash.jpg' width = '1000px' height = 'auto' align = 'center' alt = 'image of a person holding a credit card at a laptop'>"),     
+            h4("This app provides an interface for the user to explore, analyze, and model ecommerce session behavior and its impact on purchase."),
+            p("The data set from the UCI Machine Learning repository contains information about the purchase intent behavior of website visitors. It details all of a users' visits in a 1 yr period: length, duration, types of content viewed, and whether they ultimately made an ecommerce purchase."),
             br(),
-            p("The user can use the following tabs to interact with and gain isight from the data:"),
-            HTML("<ul>
-                    <li>On the <b>Data Exploration</b> page, the user is able to interact with the data through visualizations and tables.</li> 
-                    <li>On the <b>Modeling</b> page, the user is able to customize & train three types of predictive model and use them to predict purchase outcome for new user-entered data.</li> 
-                    <li>On the <b>Data</b> page, the user can view, filter, and interact with the source data.</li>
-                  </ul>"
-            ),
+            strong("The user can use the following tabs to interact with and gain insight from the data:"),
+          )
+        ),
+        fluidRow(
+          column(4,
+            h3("Data Exploration"),
+            HTML(
+              "<div>
+                 <ul>
+                   <li>Select variables to use in bar, scatter, or box plots</li>
+                   <li>Add a variable to graph legends for any plot type</li>
+                   <li>View data summaries on any numeric variable</li>
+                   <li>Subset summary data by any categorical variable</li>
+                   <li>filter which values of the subsetting variable to show in the summary</li>
+                 </ul>
+               </div>"
+            )
+          ),
+          column(4,
+            h3("Modeling"),
+            HTML(
+              "<div>
+                 <ul>
+                   <li>Get information about the different classification methods used in this app</li>
+                   <li>Design and train three different kinds of classification models</li>
+                   <li>Control training data proportions and variable inclusion for all models</li>
+                   <li>Enter a custom observation and predict its outcome with the random forest model</li>
+                 </ul>
+               </div>"
+            )
+          ),
+          column(4,
+            h3("Data"),
+            HTML(
+              "<div>
+                 <ul>
+                   <li>View the source data from within the app</li>
+                   <li>Customize which columns to include or exclude from the view</li>
+                   <li>Filter any column to narrow results</li>
+                   <li>Export your custom view to a csv file</li>
+                 </ul>
+               </div>"
+            )
+          )  
+        ),
+        fluidRow(
+          column(12,
             br(),
-            HTML("<p><em>Data Credit: <a href = 'https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset'> Online shoppers intention from the UCI Machine Learning Repository</a></em></p>"),
-            HTML("<p><em>Image credit: online shopping by <a href = 'https://thenounproject.com/grega.cresnar'>Gregor Cresnar</a> from the Noun Project</em></p>")
+            HTML("<p><em>Data Credit: <a href = 'https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset'> Online shoppers intention from the UCI Machine Learning Repository</a></em></p>")
           )
         )
       ),
@@ -89,7 +122,10 @@ shinyUI(
             )
           ),
           mainPanel(
+            uiOutput("visTitle"),
             plotOutput("expVis"),
+            br(),
+            uiOutput("summTitle"),
             dataTableOutput("expTab")
           )
         )
@@ -98,12 +134,22 @@ shinyUI(
         "Modeling",
         tabPanel(
           "Modeling Info",
-          sidebarLayout(
-            sidebarPanel(
-            
+          fluidRow(
+            column(12,
+              h3("Modeling Info"),
+              p("something about what classification models do as opposed to regression models")
             ),
-            mainPanel(
-                
+            column(4,
+              h4("Generalized Linear Model: Binomial"),
+              p("grab the formula and the logit function")
+            ),
+            column(4,
+              h4("Classification Tree Model"),
+              p("TBD")
+            ),
+            column(4,
+              h4("Random Forest Model"),
+              ("TBD")
             )
           )
         ),
@@ -186,7 +232,8 @@ shinyUI(
           fluidRow(
             column(4,
               actionButton("modelGo", "Train Models"),
-              br()
+              br(),
+              conditionalPanel(condition = "! input.modelGo", p("Please note that the models may take a few minutes to train & test"))
             ),
             column(8,
               conditionalPanel(condition = "input.modelGo", h4("Comparing All Models on the Test Data")),
@@ -211,10 +258,7 @@ shinyUI(
               actionButton("predGo", "Predict Outcome")
             ),
             mainPanel(
-              p("User predicted to produce revenue:"),
-              textOutput("thePred"),
-              br(),
-              p("Probabilities:"),
+              uiOutput("thePred"),
               dataTableOutput("userPred")
             )
           )
@@ -224,10 +268,18 @@ shinyUI(
         "Data",
         sidebarLayout(
           sidebarPanel(
-            
+            h3("Data"),
+            p("Select columns to include or exclude here in the sidebar. Data filters can be found at the top of each column in the table."),
+            br(),
+            checkboxInput("filterCol", "Edit visible columns?"),
+            conditionalPanel(
+              condition = "input.filterCol",
+              selectInput("dataCols", "Select columns to show", choices = names(theT), selected = names(theT), multiple = TRUE)
+            ),
+            downloadButton("dlData", "Export as .csv")
           ),
           mainPanel(
-            dataTableOutput(theT)
+            dataTableOutput("theT")
           )
         )
       )

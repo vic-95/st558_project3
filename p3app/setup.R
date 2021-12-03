@@ -1,9 +1,14 @@
 ## working with data here before putting into shiny
+library(shiny)
+library(shinythemes)
 library(tidyverse)
 library(magrittr)
 library(fastDummies)
 library(caret)
 library(ranger)
+library(tree)
+library(DT)
+library(stringr)
 
 set.seed(108)
 
@@ -33,6 +38,9 @@ numVars <- c("Administrative",
 
 theT <- rawData %<>%
   mutate_at(catVars, factor) # mass converting categorical variables to factors with infix function from magrittr
+
+levels(theT$Revenue) <- c("revenue", "no_revenue")
+make.names(levels(theT$Revenue))
 
 theModelT <- dummy_cols(
   theT,
@@ -76,7 +84,7 @@ finPred <- finNames[! finNames %in% c("Revenue")]
 # these are variable names to be used in the UI for user selection in the modeling part
 
 #########################
-
+# 
 # index <- createDataPartition(y = finalData$Revenue , p = 0.8, list = FALSE)
 # trdata <- data.frame(finalData[index,])
 # tsdata <- data.frame(finalData[-index,])
@@ -103,6 +111,9 @@ finPred <- finNames[! finNames %in% c("Revenue")]
 # names(df) <- vec
 # 
 # df
+#
+# 
+# x <- predict(ctTrain, newdata = df, type = "prob")
 #
 # 
 # tr <- train(
