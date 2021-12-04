@@ -19,9 +19,10 @@ shinyServer(function(input, output, session) {
   }) # Some dynamic UI for the title of the data exploration visual
   
   output$expVis <- renderPlot({
+    req(input$graphType, input$split, input$xaxis, input$yaxis)
     if(input$graphType == "bar" & input$split == "None") {
         
-      ggplot(theT, aes(x = theT[[input$xaxis]])) +
+      ggplot(theT, aes_string(x = input$xaxis)) +
         geom_bar() +
           labs(x = input$xaxis)
         
@@ -36,7 +37,7 @@ shinyServer(function(input, output, session) {
       theT$x <- factor(theT[[input$xaxis]])
         ggplot(theT, aes(fill = theT$x, y = theT[[input$yaxis]])) +
           geom_boxplot() +
-            labs(x = input$xaxis, y = input$yaxis)
+            labs(fill = input$xaxis, y = input$yaxis)
         
     } else if(input$graphType == "scatter" & input$split == "None") {
       
@@ -123,7 +124,7 @@ shinyServer(function(input, output, session) {
       as.formula(paste("Revenue ~ ", paste(input$clTreeVars, collapse = "+"))),
       data = trdataCT(),
       method = "rpart",
-      trControl = trainControl(method = "cv", number = 10, classProbs = TRUE)
+      trControl = trainControl(method = "cv", number = 10, splitRule = "gini", classProbs = TRUE)
     )}, message = "Classification Tree: Training", detail = "this part should be quick")
   }) # training classification tree on action (with a progress bar)
   

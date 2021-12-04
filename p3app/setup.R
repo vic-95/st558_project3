@@ -86,6 +86,10 @@ finPred <- finNames[! finNames %in% c("Revenue")]
 # these are variable names to be used in the UI for user selection in the modeling part
 
 #########################
+
+# ggplot(theT, aes(x = theT$Month)) +
+#   geom_bar() +
+#   labs(x = "Month")
 # 
 # index <- createDataPartition(y = finalData$Revenue , p = 0.8, list = FALSE)
 # trdata <- data.frame(finalData[index,])

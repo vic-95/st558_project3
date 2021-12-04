@@ -132,20 +132,18 @@ shinyUI(
           fluidRow(
             column(12,
               h3("Modeling Info"),
-              p("This app gives you the ability to train three types of classification models: a generalized linear model in the binomial family, a classification tree, and a random forest model."),
-              p("Because our response varible, Revenue, is categorical rather than continuous, we use classification to predict which one of two outcomes a user on a website will fall into: generating revenue or not generating revenue."),
-              p("If our response variable was continuous, say, a dollar amount of revenue generated, we would instead use regression methods to predict a dollar amount of revenue for each person."),
+              p("This app gives you the ability to train three types of models: a logistic regression model, a classification tree, and a random forest model."),
+              p("Because our response varible, Revenue, is categorical rather than continuous, we use logistic regression instead of linear regression in our linear model and classification instead of regression in our trees to predict which one of two outcomes a user on a website will fall into: generating revenue or not generating revenue."),
+              p("If our response variable was continuous, say, a dollar amount of revenue generated, we would instead use linear regression and regression trees to predict a dollar amount of revenue for each person."),
               br()
             ),
             column(4,
-              h4("Generalized Linear Model: Binomial"),
-              p("logit function links the mean to the linear form of the model"),
+              h4("Logistic Regression Model"),
+              p("Logistic Regression allows us to use non-continuous responses from non-normal distributions to make linear models by linking the mean to the linear form of the model."),
+              p("This gives us better predictions than a linear regression model for response varibles like ours. It does, however, share some shortcomings with other linear models in that it is linear and not as flexible as a tree."),
               withMathJax(),
-              p("logit for binomial/bernoulli is:"),
-              helpText("$$X\\beta = \\ln(\\frac{\\mu}1-\\mu)$$"),
-              p("where"),
-              helpText("$$\\mu = \\frac{exp(X\\beta)}1+exp(X\\beta) = \\frac{1}1+exp(X\\beta)$$"),
-              p("Yi is the outcome of the ith observation. Yi ~ Bin(mui)")
+              p("The link function for logistic regression is a natural link, specifically the logit function:"),
+              p("$$X\\beta = \\ln(\\frac{\\mu}1-\\mu)$$")
             ),
             column(4,
               h4("Classification Tree Model"),
@@ -155,14 +153,19 @@ shinyUI(
               br(),
               p("However, classification trees are highly sensitive to small changes in data, making them less able to handle new data. They also usually need to be pruned."),
               p("To predict group membership, we use the gini index."),
-              helpText("For a binary (T/F) response like ours, where $$p=P(correct classification)$$ in a tree node:"),
-              helpText("Gini: $$2p(1-p)$$"),
-              helpText("Deviance: $$-2p\\log(p)-2(1-p)\\log(1-p)$$"),
-              p("smaller gini and deviance values mean that a node classifies well.")
+              p("For a binary (T/F) response like ours, Gini:"),
+              p("$$2p(1-p)$$"),
+              p("and Deviance:"),
+              p("$$-2p\\log(p)-2(1-p)\\log(1-p)$$"),
+              p("Smaller gini and deviance values mean that a node classifies well.")
             ),
             column(4,
               h4("Random Forest Model"),
-              ("TBD")
+              p("Random Forest models are a supervised method that can solve regression or classification problems. It extends the idea of bagging by creating multiple trees from bootstrap samples."),
+              p("From there, random subsets of our predictors get used to create each tree fit. The final model averages accross all of our trees."),
+              p("Random Forests generally give us more accuracy than a single classification tree, but in doing so, we lose the easy view of what's going on in our model. We also sacrifice computational speed."),
+              p("For classification with random forests, we generally use $$m=\\sqrt{p}$$ randomly selected predictors. Here, we try different values of $$m$$ and use the best result."),
+              p("Like the simpler classification tree, we are using Gini values as our split rule.")
             )
           )
         ),
@@ -178,13 +181,13 @@ shinyUI(
           ),
           fluidRow(
             column(4,
-              h4("GLM Binomial"),
+              h4("Logistic Regression"),
               sliderInput(
                 "lrDataSplit", label = strong("Select the proportion of data to use for model training"),
                 min = 0, max = 1, value = 0.8
               ),
               selectInput(
-                "linregVars", label = strong("Variables for the binomial GLM"),
+                "linregVars", label = strong("Variables for the Logistic Regression model"),
                 choices = finPred,
                 selected = finPred,
                 multiple = TRUE
