@@ -113,12 +113,7 @@ shinyUI(
             selectInput(
               "byVar",
               strong("Select the variable for summary grouping"),
-              choices = catVars
-            ),
-            checkboxGroupInput(
-              "filterList",
-              strong("Select summary filters"),
-              choices = NULL
+              choices = append("None", catVars), selected = "None"
             )
           ),
           mainPanel(
@@ -137,15 +132,33 @@ shinyUI(
           fluidRow(
             column(12,
               h3("Modeling Info"),
-              p("something about what classification models do as opposed to regression models")
+              p("This app gives you the ability to train three types of classification models: a generalized linear model in the binomial family, a classification tree, and a random forest model."),
+              p("Because our response varible, Revenue, is categorical rather than continuous, we use classification to predict which one of two outcomes a user on a website will fall into: generating revenue or not generating revenue."),
+              p("If our response variable was continuous, say, a dollar amount of revenue generated, we would instead use regression methods to predict a dollar amount of revenue for each person."),
+              br()
             ),
             column(4,
               h4("Generalized Linear Model: Binomial"),
-              p("grab the formula and the logit function")
+              p("logit function links the mean to the linear form of the model"),
+              withMathJax(),
+              p("logit for binomial/bernoulli is:"),
+              helpText("$$X\\beta = \\ln(\\frac{\\mu}1-\\mu)$$"),
+              p("where"),
+              helpText("$$\\mu = \\frac{exp(X\\beta)}1+exp(X\\beta) = \\frac{1}1+exp(X\\beta)$$"),
+              p("Yi is the outcome of the ith observation. Yi ~ Bin(mui)")
             ),
             column(4,
               h4("Classification Tree Model"),
-              p("TBD")
+              p("Classification trees are a supervised learning method in which predictor variables are split via nodes and probability of group membership differs by node."),
+              br(),
+              p("This model type is easy to understand visually and has a few ease-of-implementation benefits. Predictors do not need to be scaled and statistical assumptions of the data are unecessary."),
+              br(),
+              p("However, classification trees are highly sensitive to small changes in data, making them less able to handle new data. They also usually need to be pruned."),
+              p("To predict group membership, we use the gini index."),
+              helpText("For a binary (T/F) response like ours, where $$p=P(correct classification)$$ in a tree node:"),
+              helpText("Gini: $$2p(1-p)$$"),
+              helpText("Deviance: $$-2p\\log(p)-2(1-p)\\log(1-p)$$"),
+              p("smaller gini and deviance values mean that a node classifies well.")
             ),
             column(4,
               h4("Random Forest Model"),
@@ -259,6 +272,7 @@ shinyUI(
             ),
             mainPanel(
               uiOutput("thePred"),
+              br(),
               dataTableOutput("userPred")
             )
           )

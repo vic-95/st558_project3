@@ -6,13 +6,14 @@ library(magrittr)
 library(fastDummies)
 library(caret)
 library(ranger)
-library(tree)
+library(rpart)
+library(rpart.plot)
 library(DT)
 library(stringr)
 
-set.seed(108)
+set.seed(5)
 
-rawData <- read_csv("../online_shoppers_intention.csv") # the data set as-is
+rawData <- read_csv("../online_shoppers_intention.csv", show_col_types = FALSE) # the data set as-is
 
 catVars <- c("Month", 
              "OperatingSystems", 
@@ -65,15 +66,16 @@ sansNZV <- theModelT %>%
 # Choosing to deal with this by preemptively removing near-zero variance columns from the data.
 
 c <- cor(sansNZV %>% select(-Revenue))
+c[lower.tri(c)] <- NA
 
 cTib <- as_tibble(c) %>%
   mutate(v1 = names(as_tibble(c))) %>%
   pivot_longer(cols = !v1, names_to = "v2", values_to = "corr") %>%
-  filter(abs(corr) == 1 & v1 != v2)
-# I was seeing rank deficiency issues in my models and figured out it was because of 100% correlated predictors.
-# This allows me to root out and eliminate to superfluous predictor. I mean it was obviously the boolean value weekend, but...
+  filter(abs(corr) > 0.9 & v1 != v2)
+# I was seeing rank deficiency issues in my models and figured out it was because of highly correlated predictors.
+# This allows me to root out and eliminate to superfluous predictors.
 
-finalData <- sansNZV %>% select(-Weekend_FALSE) # I could have probably done this programatically but...
+finalData <- sansNZV %>% select(-all_of(cTib$v1)) # I could have probably done this programatically but...
 
 modNames <- names(theT)
 predVec <- modNames[ ! modNames %in% c("Revenue")]
@@ -93,7 +95,7 @@ finPred <- finNames[! finNames %in% c("Revenue")]
 # 
 # ctTrain <-
 #     train(
-#       Revenue ~ Administrative + Administrative_Duration,
+#       Revenue ~ .,
 #       data = trdata,
 #       method = "glm",
 #       family = "binomial",
@@ -101,8 +103,8 @@ finPred <- finNames[! finNames %in% c("Revenue")]
 #       trControl = trainControl(method = "cv", number = 10)
 #     )
 # 
-# # pred <- predict(ctTrain, newData = tsdata)
-# # p2 <- round(postResample(pred, obs = tsdata$Revenue),4)
+#  pred <- predict(ctTrain, newData = tsdata)
+#  p2 <- round(postResample(pred, obs = tsdata$Revenue),4)
 # 
 # df <- data.frame(matrix(data = vector(), nrow = 0, ncol = length(vec)))
 # vals <- unlist(lapply(vec, function(.x) {return(runif(1,0,1))}))

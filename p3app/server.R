@@ -58,19 +58,23 @@ shinyServer(function(input, output, session) {
     h4(title)
   }) # Some dynamic UI for the title of the data exploration visual
   
-  observe({
-    updateCheckboxGroupInput(session, "filterList", choices = unique(theT[[input$byVar]]), selected = unique(theT[[input$byVar]]))
-  }) # change what options the filter box displays based on the by-variable. Select them all by default.
-
   output$expTab <- renderDataTable({
-    df <- theT %>%
-      filter(.data[[input$byVar]] %in% input$filterList) %>%
+    if(input$byVar == 'None'){
+      df <- theT %>%
+        summarize(mean = round(mean(.data[[input$summVar]]), digits = 2), 
+                  median = round(median(.data[[input$summVar]]), digits = 2),
+                  iqr = round(IQR(.data[[input$summVar]]), digits = 2),
+                  sd = round(sd(.data[[input$summVar]]), digits = 2)
+        )
+    } else {
+      df <- theT %>%
         group_by(.data[[input$byVar]]) %>%
-          summarize(mean = round(mean(.data[[input$summVar]]), digits = 2), 
-                    median = round(median(.data[[input$summVar]]), digits = 2),
-                    iqr = round(IQR(.data[[input$summVar]]), digits = 2),
-                    sd = round(sd(.data[[input$summVar]]), digits = 2)
-                    )
+        summarize(mean = round(mean(.data[[input$summVar]]), digits = 2), 
+                  median = round(median(.data[[input$summVar]]), digits = 2),
+                  iqr = round(IQR(.data[[input$summVar]]), digits = 2),
+                  sd = round(sd(.data[[input$summVar]]), digits = 2)
+        )
+    }
   }, filter = "top") # data table that allows for filtering values of categorical by-vars
   
   ######################### Modeling.Model Training tab #########################
@@ -119,8 +123,7 @@ shinyServer(function(input, output, session) {
       as.formula(paste("Revenue ~ ", paste(input$clTreeVars, collapse = "+"))),
       data = trdataCT(),
       method = "rpart",
-      preProcess = c("center","scale"),
-      trControl = trainControl(method = "cv", number = 10)
+      trControl = trainControl(method = "cv", number = 10, classProbs = TRUE)
     )}, message = "Classification Tree: Training", detail = "this part should be quick")
   }) # training classification tree on action (with a progress bar)
   
@@ -138,7 +141,7 @@ shinyServer(function(input, output, session) {
   }) # results of the classification tree model on the training data
   
   output$ctPlot <- renderPlot({
-    plot(tree(ctTrain())); text(tree(ctTrain()))
+    rpart.plot(ctTrain()$finalModel, uniform = TRUE)
   }) # a tree plot with text of the classification tree model
   
   indexRF <- eventReactive(input$modelGo, {createDataPartition(y = finalData$Revenue , p = input$rfDataSplit, list = FALSE)})
@@ -222,7 +225,7 @@ shinyServer(function(input, output, session) {
   }) # when the user hits the button, make a teeny tiny data frame with the observation and var names and run a predict on it
   
   output$thePred <- renderUI({
-    if(pred() == FALSE) {h4("This observation is not predicted to produce revenue")} else {"This observation is predicted to produce revenue"}
+    if(pred() == FALSE) {h3("This observation is not predicted to produce revenue")} else {h3("This observation is predicted to produce revenue")}
   })
   output$userPred <- renderDataTable({
     predValues() %>% mutate_all(round, digits = 4)
