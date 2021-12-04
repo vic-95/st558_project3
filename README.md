@@ -54,12 +54,8 @@ Use the code below to run this app yourself:
 
 ``` r
 shiny::runGitHub(repo = "st558_project3", 
-                 username = getOption("github.user"), 
+                 username = "vic-95", 
                  ref = "main", 
-                 subdir = "p3app", 
-                 port = NULL, 
-                 launch.browser = getOption("shiny.launch.browser", 
-                                            interactive()
-                                            )
+                 subdir = "p3app/"
                  )
 ```
